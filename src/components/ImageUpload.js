@@ -51,5 +51,4 @@ const AddClick = () => {
   return null;
 };
 
-
 export default ImageUpload;
