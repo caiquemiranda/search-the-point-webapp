@@ -5,7 +5,7 @@ import './App.css';
 const App = () => {
   return (
     <div className="App">
-      <h1>Image Zoom Web App</h1>
+      <h1>Search the point webapp</h1>
       <ImageUpload />
     </div>
   );

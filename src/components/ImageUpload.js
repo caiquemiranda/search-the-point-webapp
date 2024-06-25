@@ -45,7 +45,7 @@ const AddClick = () => {
     click: (e) => {
       const { lat, lng } = e.latlng;
       console.log(`Coordinates: ${lat}, ${lng}`);
-      map.setView([lat, lng], map.getZoom() + 1); // Aplica zoom nas coordenadas
+      map.setView([lat, lng], map.getZoom() + 1); 
     },
   });
   return null;
