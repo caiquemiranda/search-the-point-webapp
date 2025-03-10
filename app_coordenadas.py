@@ -14,6 +14,12 @@ if 'coordenadas' not in st.session_state:
 if 'imagem_atual' not in st.session_state:
     st.session_state.imagem_atual = None
 
+def add_coordenada(x, y):
+    if 'coordenadas' not in st.session_state:
+        st.session_state.coordenadas = []
+    st.session_state.coordenadas.append({'x': x, 'y': y})
+    st.session_state.modified = True
+
 # Layout em duas colunas
 col1, col2 = st.columns([2, 1])
 
@@ -37,44 +43,51 @@ with col1:
             # Usar st.image com use_container_width
             image_container.image(img_bytes.getvalue(), use_container_width=True)
             
-            # JavaScript para capturar cliques e calcular coordenadas corretas
+            # JavaScript para captura de cliques
             st.markdown("""
             <script>
-                // Função para adicionar coordenadas
-                function addCoordinates(x, y) {
-                    const coordinates = window.parent.streamlitPython.setComponentValue(
-                        'coordenadas',
-                        [...window.parent.streamlitPython.getComponentValue('coordenadas'), {x: x, y: y}]
-                    );
+                // Função para enviar coordenadas para o Streamlit
+                function sendCoordinates(x, y) {
+                    const data = {
+                        x: x,
+                        y: y
+                    };
+                    
+                    fetch('/', {
+                        method: 'POST',
+                        body: JSON.stringify(data),
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    }).then(() => {
+                        window.location.reload();
+                    });
                 }
-                
-                // Aguardar carregamento do DOM
-                document.addEventListener('DOMContentLoaded', function() {
-                    const images = document.querySelectorAll('.stImage img');
-                    images.forEach(img => {
+
+                // Adicionar evento de clique na imagem
+                window.addEventListener('load', function() {
+                    const img = document.querySelector('.stImage img');
+                    if (img) {
                         img.style.cursor = 'crosshair';
                         img.onclick = function(e) {
                             const rect = this.getBoundingClientRect();
-                            const scaleX = this.naturalWidth / rect.width;
-                            const scaleY = this.naturalHeight / rect.height;
-                            
-                            const x = Math.round((e.clientX - rect.left) * scaleX);
-                            const y = Math.round((e.clientY - rect.top) * scaleY);
-                            
-                            // Adicionar coordenadas à sessão do Streamlit
-                            window.parent.postMessage({
-                                type: 'streamlit:setComponentValue',
-                                key: 'coordenadas',
-                                value: [...(window.parent.streamlitPython.getComponentValue('coordenadas') || []), {x, y}]
-                            }, '*');
-                            
-                            // Forçar atualização da página
-                            window.parent.streamlitPython.setComponentValue('_stcore:rerun', true);
-                        };
-                    });
+                            const x = Math.round(e.clientX - rect.left);
+                            const y = Math.round(e.clientY - rect.top);
+                            sendCoordinates(x, y);
+                        }
+                    }
                 });
             </script>
             """, unsafe_allow_html=True)
+            
+            # Capturar coordenadas dos parâmetros da query
+            params = st.query_params
+            if 'x' in params and 'y' in params:
+                x = int(params['x'])
+                y = int(params['y'])
+                add_coordenada(x, y)
+                # Limpar os parâmetros
+                st.query_params.clear()
             
         except Exception as e:
             st.error(f"Erro ao processar o PDF: {str(e)}")
@@ -85,14 +98,22 @@ with col2:
     # Exibir coordenadas capturadas
     if st.session_state.coordenadas:
         df = pd.DataFrame(st.session_state.coordenadas)
-        st.dataframe(df, use_container_width=True)
+        st.write("Lista de Coordenadas:")
+        for idx, coord in enumerate(st.session_state.coordenadas):
+            st.write(f"{idx + 1}. X: {coord['x']}, Y: {coord['y']}")
+        
+        col2_1, col2_2 = st.columns(2)
         
         # Botão para salvar coordenadas
-        if st.button("Salvar Coordenadas"):
-            df.to_csv("coordenadas.csv", index=False)
-            st.success("Coordenadas salvas com sucesso!")
-            
+        with col2_1:
+            if st.button("Salvar Coordenadas"):
+                df.to_csv("coordenadas.csv", index=False)
+                st.success("Coordenadas salvas com sucesso!")
+        
         # Botão para limpar coordenadas
-        if st.button("Limpar Coordenadas"):
-            st.session_state.coordenadas = []
-            st.experimental_rerun() 
+        with col2_2:
+            if st.button("Limpar Coordenadas"):
+                st.session_state.coordenadas = []
+                st.experimental_rerun()
+    else:
+        st.info("Clique na imagem para capturar coordenadas") 
