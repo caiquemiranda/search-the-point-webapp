@@ -68,7 +68,7 @@ def get_zoomed_area(pix, x, y, zoom_level):
     )
     
     # Desenhar ponto vermelho nas coordenadas exatas
-    draw_point(draw, x_pixel, y_pixel, "red", 15)
+    draw_point(draw, x_pixel, y_pixel, "red", 20)
     
     # Redimensionar o mapa de localização para um tamanho menor
     location_map.thumbnail((500, 500), Image.Resampling.LANCZOS)
@@ -80,7 +80,7 @@ def get_zoomed_area(pix, x, y, zoom_level):
     # Desenhar ponto vermelho nas coordenadas exatas na área ampliada
     relative_x = x_pixel - x_start
     relative_y = y_pixel - y_start
-    draw_point(zoom_draw, relative_x, relative_y, "red", 5)
+    draw_point(zoom_draw, relative_x, relative_y, "red", 15)
     
     # Converter para array numpy
     zoomed_area = np.array(zoomed_img)
