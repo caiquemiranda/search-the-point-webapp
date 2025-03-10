@@ -3,7 +3,7 @@ import fitz  # PyMuPDF
 import tempfile
 import os
 import io
-from PIL import Image
+from PIL import Image, ImageDraw
 import numpy as np
 
 # Configurações do Streamlit
@@ -32,12 +32,38 @@ with col2:
     x = st.number_input("Coordenada X", value=0.0, step=0.1)
     y = st.number_input("Coordenada Y", value=0.0, step=0.1)
     zoom_level = st.slider("Nível de Zoom", min_value=1, max_value=5, value=2)
+    
+    # Adicionar controles de navegação
+    st.subheader("Navegação")
+    col_nav1, col_nav2 = st.columns(2)
+    with col_nav1:
+        move_left = st.button("⬅️")
+        move_right = st.button("➡️")
+    with col_nav2:
+        move_up = st.button("⬆️")
+        move_down = st.button("⬇️")
+    
     buscar = st.button("Buscar Coordenadas")
 
-def get_zoomed_area(pix, x, y, zoom_level):
-    # Converter o pixmap para array numpy
+# Inicializar variáveis de estado para navegação
+if 'offset_x' not in st.session_state:
+    st.session_state.offset_x = 0
+if 'offset_y' not in st.session_state:
+    st.session_state.offset_y = 0
+
+# Atualizar offsets baseado nos botões de navegação
+if move_left:
+    st.session_state.offset_x -= 50
+if move_right:
+    st.session_state.offset_x += 50
+if move_up:
+    st.session_state.offset_y -= 50
+if move_down:
+    st.session_state.offset_y += 50
+
+def get_zoomed_area(pix, x, y, zoom_level, offset_x=0, offset_y=0):
+    # Converter o pixmap para imagem PIL
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-    img_array = np.array(img)
     
     # Definir o tamanho da área de zoom
     window_size = 100 * zoom_level
@@ -46,16 +72,34 @@ def get_zoomed_area(pix, x, y, zoom_level):
     x_pixel = int(x)
     y_pixel = int(pix.height - y)  # Inverter Y pois PDF usa coordenadas de baixo para cima
     
+    # Aplicar offsets
+    x_pixel += offset_x
+    y_pixel += offset_y
+    
     # Definir os limites da área de zoom
     x_start = max(0, x_pixel - window_size//2)
     x_end = min(pix.width, x_pixel + window_size//2)
     y_start = max(0, y_pixel - window_size//2)
     y_end = min(pix.height, y_pixel + window_size//2)
     
-    # Extrair a área de zoom
-    zoomed_area = img_array[y_start:y_end, x_start:x_end]
+    # Criar uma cópia da imagem original para o mapa de localização
+    location_map = img.copy()
+    draw = ImageDraw.Draw(location_map)
     
-    return zoomed_area, (x_start, y_start, x_end, y_end)
+    # Desenhar retângulo vermelho na área de zoom
+    draw.rectangle(
+        [(x_start, y_start), (x_end, y_end)],
+        outline="red",
+        width=5
+    )
+    
+    # Redimensionar o mapa de localização para um tamanho menor
+    location_map.thumbnail((500, 500), Image.Resampling.LANCZOS)
+    
+    # Extrair a área de zoom
+    zoomed_area = np.array(img.crop((x_start, y_start, x_end, y_end)))
+    
+    return zoomed_area, location_map, (x_start, y_start, x_end, y_end)
 
 if uploaded_file is not None:
     try:
@@ -79,13 +123,20 @@ if uploaded_file is not None:
             if buscar:
                 st.write(f"Buscando nas coordenadas: X={x}, Y={y}")
                 
-                # Obter a área ampliada
-                zoomed_area, (x1, y1, x2, y2) = get_zoomed_area(pix, x, y, zoom_level)
+                # Obter a área ampliada e o mapa de localização
+                zoomed_area, location_map, (x1, y1, x2, y2) = get_zoomed_area(
+                    pix, x, y, zoom_level,
+                    st.session_state.offset_x,
+                    st.session_state.offset_y
+                )
                 
-                # Mostrar a área ampliada
+                # Mostrar a área ampliada e o mapa de localização
                 with col3:
                     st.subheader("Área Ampliada")
                     st.image(zoomed_area, caption=f"Zoom nas coordenadas (X={x}, Y={y})")
+                    
+                    st.subheader("Mapa de Localização")
+                    st.image(location_map, caption="Área selecionada em vermelho")
                 
                 # Obter o texto próximo às coordenadas
                 words = page.get_text("words")
@@ -102,7 +153,7 @@ if uploaded_file is not None:
                 if not encontrou:
                     with col2:
                         st.warning("Nenhum texto encontrado próximo a essas coordenadas.")
-                        st.info("Tente ajustar as coordenadas ou aumentar a área de busca.")
+                        st.info("Use os botões de navegação para explorar a área.")
             
             # Fechar o documento
             doc.close()
