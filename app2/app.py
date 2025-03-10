@@ -31,37 +31,15 @@ with col2:
     st.subheader("Coordenadas")
     x = st.number_input("Coordenada X", value=0.0, step=0.1)
     y = st.number_input("Coordenada Y", value=0.0, step=0.1)
-    zoom_level = st.slider("Nível de Zoom", min_value=1, max_value=5, value=2)
-    
-    # Adicionar controles de navegação
-    st.subheader("Navegação")
-    col_nav1, col_nav2 = st.columns(2)
-    with col_nav1:
-        move_left = st.button("⬅️")
-        move_right = st.button("➡️")
-    with col_nav2:
-        move_up = st.button("⬆️")
-        move_down = st.button("⬇️")
-    
+    zoom_level = st.slider("Nível de Zoom", min_value=1, max_value=10, value=2)
     buscar = st.button("Buscar Coordenadas")
 
-# Inicializar variáveis de estado para navegação
-if 'offset_x' not in st.session_state:
-    st.session_state.offset_x = 0
-if 'offset_y' not in st.session_state:
-    st.session_state.offset_y = 0
+def draw_point(draw, x, y, color="red", size=10):
+    """Desenha um ponto circular nas coordenadas especificadas"""
+    x, y = int(x), int(y)
+    draw.ellipse([(x-size, y-size), (x+size, y+size)], fill=color)
 
-# Atualizar offsets baseado nos botões de navegação
-if move_left:
-    st.session_state.offset_x -= 50
-if move_right:
-    st.session_state.offset_x += 50
-if move_up:
-    st.session_state.offset_y -= 50
-if move_down:
-    st.session_state.offset_y += 50
-
-def get_zoomed_area(pix, x, y, zoom_level, offset_x=0, offset_y=0):
+def get_zoomed_area(pix, x, y, zoom_level):
     # Converter o pixmap para imagem PIL
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
     
@@ -71,10 +49,6 @@ def get_zoomed_area(pix, x, y, zoom_level, offset_x=0, offset_y=0):
     # Calcular as coordenadas da janela de zoom
     x_pixel = int(x)
     y_pixel = int(pix.height - y)  # Inverter Y pois PDF usa coordenadas de baixo para cima
-    
-    # Aplicar offsets
-    x_pixel += offset_x
-    y_pixel += offset_y
     
     # Definir os limites da área de zoom
     x_start = max(0, x_pixel - window_size//2)
@@ -90,14 +64,26 @@ def get_zoomed_area(pix, x, y, zoom_level, offset_x=0, offset_y=0):
     draw.rectangle(
         [(x_start, y_start), (x_end, y_end)],
         outline="red",
-        width=5
+        width=10
     )
+    
+    # Desenhar ponto vermelho nas coordenadas exatas
+    draw_point(draw, x_pixel, y_pixel, "red", 15)
     
     # Redimensionar o mapa de localização para um tamanho menor
     location_map.thumbnail((500, 500), Image.Resampling.LANCZOS)
     
-    # Extrair a área de zoom
-    zoomed_area = np.array(img.crop((x_start, y_start, x_end, y_end)))
+    # Criar uma cópia da área de zoom para adicionar o ponto
+    zoomed_img = img.crop((x_start, y_start, x_end, y_end))
+    zoom_draw = ImageDraw.Draw(zoomed_img)
+    
+    # Desenhar ponto vermelho nas coordenadas exatas na área ampliada
+    relative_x = x_pixel - x_start
+    relative_y = y_pixel - y_start
+    draw_point(zoom_draw, relative_x, relative_y, "red", 5)
+    
+    # Converter para array numpy
+    zoomed_area = np.array(zoomed_img)
     
     return zoomed_area, location_map, (x_start, y_start, x_end, y_end)
 
@@ -116,18 +102,20 @@ if uploaded_file is not None:
             zoom_matrix = fitz.Matrix(2, 2)  # Aumentar a resolução base
             pix = page.get_pixmap(matrix=zoom_matrix, alpha=False)
             
+            # Criar imagem base com ponto para coordenadas encontradas
+            base_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            base_draw = ImageDraw.Draw(base_img)
+            
             # Mostrar a imagem completa na interface
             with col1:
-                st.image(pix.tobytes(), caption="Página do PDF", use_column_width=True)
+                st.image(base_img, caption="Página do PDF", use_column_width=True)
             
             if buscar:
                 st.write(f"Buscando nas coordenadas: X={x}, Y={y}")
                 
                 # Obter a área ampliada e o mapa de localização
                 zoomed_area, location_map, (x1, y1, x2, y2) = get_zoomed_area(
-                    pix, x, y, zoom_level,
-                    st.session_state.offset_x,
-                    st.session_state.offset_y
+                    pix, x, y, zoom_level
                 )
                 
                 # Mostrar a área ampliada e o mapa de localização
@@ -153,7 +141,6 @@ if uploaded_file is not None:
                 if not encontrou:
                     with col2:
                         st.warning("Nenhum texto encontrado próximo a essas coordenadas.")
-                        st.info("Use os botões de navegação para explorar a área.")
             
             # Fechar o documento
             doc.close()
