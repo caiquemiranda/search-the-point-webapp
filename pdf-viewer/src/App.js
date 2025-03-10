@@ -9,6 +9,9 @@ function App() {
   const [pdfData, setPdfData] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [coordinates, setCoordinates] = useState({ x: '', y: '' });
+  const [savedCoordinates, setSavedCoordinates] = useState([]);
+  const [coordinateName, setCoordinateName] = useState('');
+  const [overlay, setOverlay] = useState(null);
 
   const viewerRef = useRef(null);
   const viewerInstance = useRef(null);
@@ -37,7 +40,7 @@ function App() {
         zoomOutButton: "zoom-out",
         homeButton: "home",
         fullPageButton: "full-page",
-        maxZoomPixelRatio: 3,
+        maxZoomPixelRatio: 5,
         animationTime: 0.5,
         visibilityRatio: 1,
         constrainDuringPan: true
@@ -48,10 +51,49 @@ function App() {
         const webPoint = event.position;
         const viewportPoint = viewerInstance.current.viewport.pointFromPixel(webPoint);
 
-        // Atualiza as coordenadas com base no clique
+        // Remove marcador anterior se existir
+        if (overlay) {
+          viewerInstance.current.removeOverlay(overlay);
+        }
+
+        // Cria um novo elemento para o marcador
+        const marker = document.createElement('div');
+        marker.className = 'coordinate-marker';
+        marker.style.width = '20px';
+        marker.style.height = '20px';
+        marker.style.borderRadius = '50%';
+        marker.style.backgroundColor = 'red';
+
+        // Adiciona o novo marcador
+        const newOverlay = viewerInstance.current.addOverlay({
+          element: marker,
+          location: new OpenSeadragon.Point(viewportPoint.x, viewportPoint.y),
+          placement: OpenSeadragon.Placement.CENTER
+        });
+
+        setOverlay(newOverlay);
+
+        // Atualiza as coordenadas
         setCoordinates({
-          x: viewportPoint.x.toFixed(2),
-          y: viewportPoint.y.toFixed(2)
+          x: viewportPoint.x.toFixed(4),
+          y: viewportPoint.y.toFixed(4)
+        });
+      });
+
+      // Renderiza marcadores salvos
+      savedCoordinates.forEach(coord => {
+        const marker = document.createElement('div');
+        marker.className = 'saved-coordinate-marker';
+        marker.style.width = '20px';
+        marker.style.height = '20px';
+        marker.style.borderRadius = '50%';
+        marker.style.backgroundColor = 'blue';
+        marker.title = coord.name;
+
+        viewerInstance.current.addOverlay({
+          element: marker,
+          location: new OpenSeadragon.Point(parseFloat(coord.x), parseFloat(coord.y)),
+          placement: OpenSeadragon.Placement.CENTER
         });
       });
     }
@@ -61,23 +103,47 @@ function App() {
         viewerInstance.current.destroy();
       }
     };
-  }, [pdfData, currentPage]);
+  }, [pdfData, currentPage, savedCoordinates]);
+
+  // Função para salvar coordenadas
+  const saveCoordinate = () => {
+    if (!coordinates.x || !coordinates.y || !coordinateName) {
+      alert('Por favor, selecione um ponto e dê um nome para a coordenada');
+      return;
+    }
+
+    const newCoordinate = {
+      name: coordinateName,
+      x: coordinates.x,
+      y: coordinates.y,
+      page: currentPage
+    };
+
+    setSavedCoordinates([...savedCoordinates, newCoordinate]);
+    setCoordinateName('');
+  };
+
+  // Função para navegar até uma coordenada salva
+  const navigateToSavedCoordinate = (coord) => {
+    setCurrentPage(coord.page);
+    setCoordinates({ x: coord.x, y: coord.y });
+    navigateToCoordinates(coord.x, coord.y);
+  };
 
   // Função para navegar até coordenadas específicas
-  const navigateToCoordinates = () => {
-    if (!viewerInstance.current || !coordinates.x || !coordinates.y) return;
+  const navigateToCoordinates = (x = coordinates.x, y = coordinates.y) => {
+    if (!viewerInstance.current) return;
 
-    const x = parseFloat(coordinates.x);
-    const y = parseFloat(coordinates.y);
+    const xCoord = parseFloat(x);
+    const yCoord = parseFloat(y);
 
-    if (isNaN(x) || isNaN(y)) {
+    if (isNaN(xCoord) || isNaN(yCoord)) {
       alert("Coordenadas inválidas");
       return;
     }
 
-    // Centraliza a visualização nas coordenadas fornecidas e aplica zoom
-    viewerInstance.current.viewport.panTo(new OpenSeadragon.Point(x, y));
-    viewerInstance.current.viewport.zoomTo(2.0); // Ajuste o valor do zoom conforme necessário
+    viewerInstance.current.viewport.panTo(new OpenSeadragon.Point(xCoord, yCoord));
+    viewerInstance.current.viewport.zoomTo(6.0);
   };
 
   // Upload e processamento do PDF
@@ -194,7 +260,29 @@ function App() {
                   onChange={(e) => setCoordinates({ ...coordinates, y: e.target.value })}
                 />
               </label>
-              <button onClick={navigateToCoordinates}>Navegar</button>
+              <button onClick={() => navigateToCoordinates()}>Navegar</button>
+            </div>
+            <div className="coordinate-save">
+              <input
+                type="text"
+                value={coordinateName}
+                onChange={(e) => setCoordinateName(e.target.value)}
+                placeholder="Nome do ponto"
+              />
+              <button onClick={saveCoordinate}>Salvar Coordenada</button>
+            </div>
+            <div className="saved-coordinates">
+              <h4>Coordenadas Salvas:</h4>
+              <ul>
+                {savedCoordinates.map((coord, index) => (
+                  <li key={index}>
+                    {coord.name} ({coord.x}, {coord.y})
+                    <button onClick={() => navigateToSavedCoordinate(coord)}>
+                      Ir para ponto
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
             <div className="coordinate-info">
               <p>Clique na imagem para obter coordenadas</p>
