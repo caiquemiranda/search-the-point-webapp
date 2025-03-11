@@ -345,6 +345,8 @@ button:disabled {
 }
 
 .find-point-container {
+  display: flex;
+  flex-direction: column;
   max-height: 500px;
   overflow-y: auto;
 }
@@ -385,4 +387,53 @@ button:disabled {
 
 .go-to-point-btn:hover {
   background-color: #218838;
+}
+
+.search-container {
+  position: relative;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 15px;
+  font-size: 16px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease-in-out;
+}
+
+.search-input:focus {
+  border-color: #007bff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.autocomplete-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background-color: white;
+  border: 1px solid #ced4da;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.autocomplete-results li {
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.autocomplete-results li:hover {
+  background-color: #f8f9fa;
 }

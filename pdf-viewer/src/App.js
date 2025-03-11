@@ -19,15 +19,62 @@ function App() {
   const [activeTab, setActiveTab] = useState('capture'); // 'capture' ou 'find'
   const [allSavedCoordinates, setAllSavedCoordinates] = useState([]);
   const [loadingAllCoordinates, setLoadingAllCoordinates] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredCoordinates, setFilteredCoordinates] = useState([]);
 
   const viewerRef = useRef(null);
   const viewerInstance = useRef(null);
+  const searchInputRef = useRef(null);
 
   // Carrega o histórico de imagens
   useEffect(() => {
     fetchImageHistory();
     fetchAllSavedCoordinates();
   }, []);
+
+  // Efeito para lidar com cliques fora do dropdown de sugestões
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchInputRef.current && !searchInputRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Efeito para atualizar os resultados filtrados quando o termo de busca muda
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setFilteredCoordinates(allSavedCoordinates);
+      setSearchResults([]);
+      return;
+    }
+
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+
+    // Filtrar coordenadas que correspondam ao termo de busca (no nome ou source)
+    const filtered = allSavedCoordinates.filter(coord =>
+      coord.name.toLowerCase().includes(lowerCaseSearchTerm) ||
+      (coord.source && coord.source.toLowerCase().includes(lowerCaseSearchTerm))
+    );
+
+    setFilteredCoordinates(filtered);
+
+    // Gerar sugestões de autocomplete (apenas nomes únicos)
+    const suggestions = Array.from(new Set(
+      allSavedCoordinates
+        .filter(coord => coord.name.toLowerCase().includes(lowerCaseSearchTerm))
+        .map(coord => coord.name)
+    )).slice(0, 10); // Limitar a 10 sugestões
+
+    setSearchResults(suggestions);
+  }, [searchTerm, allSavedCoordinates]);
 
   const fetchImageHistory = async () => {
     try {
@@ -57,11 +104,24 @@ function App() {
       const data = await response.json();
       console.log(`Encontradas ${data.length} coordenadas salvas`);
       setAllSavedCoordinates(data);
+      setFilteredCoordinates(data);
     } catch (error) {
       console.error('Erro ao carregar todas as coordenadas:', error);
     } finally {
       setLoadingAllCoordinates(false);
     }
+  };
+
+  // Função para selecionar uma sugestão do autocomplete
+  const handleSelectSuggestion = (suggestion) => {
+    setSearchTerm(suggestion);
+    setShowSuggestions(false);
+
+    // Filtrar para mostrar apenas os pontos com esse nome exato
+    const exactMatches = allSavedCoordinates.filter(
+      coord => coord.name.toLowerCase() === suggestion.toLowerCase()
+    );
+    setFilteredCoordinates(exactMatches);
   };
 
   // Carrega as coordenadas salvas para uma imagem
@@ -562,10 +622,36 @@ function App() {
               <>
                 <h3>Ache o Ponto</h3>
                 <div className="find-point-container">
+                  <div className="search-container" ref={searchInputRef}>
+                    <input
+                      type="text"
+                      className="search-input"
+                      placeholder="Buscar pontos salvos..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setShowSuggestions(true);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                    />
+                    {showSuggestions && searchResults.length > 0 && (
+                      <ul className="autocomplete-results">
+                        {searchResults.map((result, index) => (
+                          <li
+                            key={index}
+                            onClick={() => handleSelectSuggestion(result)}
+                          >
+                            {result}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
                   {loadingAllCoordinates ? (
                     <p>Carregando coordenadas...</p>
-                  ) : allSavedCoordinates.length === 0 ? (
-                    <p>Nenhuma coordenada salva encontrada.</p>
+                  ) : filteredCoordinates.length === 0 ? (
+                    <p>Nenhuma coordenada encontrada {searchTerm && `para "${searchTerm}"`}.</p>
                   ) : (
                     <div className="all-coordinates-list">
                       <table>
@@ -578,7 +664,7 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {allSavedCoordinates.map((coord) => (
+                          {filteredCoordinates.map((coord) => (
                             <tr key={coord.id}>
                               <td>{coord.name}</td>
                               <td>{coord.source || "Desconhecido"}</td>
