@@ -344,11 +344,45 @@ button:disabled {
   background-color: transparent;
 }
 
+.coordinates-info {
+  padding: 10px;
+  background-color: #e7f3ff;
+  border-left: 4px solid #007bff;
+  margin-bottom: 15px;
+  border-radius: 4px;
+}
+
+.find-point-section {
+  padding: 20px;
+  background-color: white;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
 .find-point-container {
   display: flex;
   flex-direction: column;
   max-height: 500px;
   overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.viewer-only-container {
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+}
+
+.viewer-only-container .viewer-container {
+  width: 100%;
+  margin: 0 auto;
+  max-width: 1200px;
+  height: 600px;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
 }
 
 .all-coordinates-list {
@@ -448,24 +482,4 @@ button:disabled {
   padding: 12px 20px;
   font-size: 18px;
   margin-right: 10px;
-}
-
-.find-point-section {
-  padding: 20px;
-  background-color: white;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
-
-.viewer-only-container {
-  display: flex;
-  flex-direction: column;
-  margin-top: 20px;
-}
-
-.viewer-only-container .viewer-container {
-  width: 100%;
-  margin: 0 auto;
-  max-width: 1200px;
 }

@@ -196,46 +196,48 @@ function App() {
         constrainDuringPan: true
       });
 
-      // Adiciona manipulador de evento para capturar coordenadas do mouse
-      viewerInstance.current.addHandler('canvas-click', function (event) {
-        const webPoint = event.position;
-        const viewportPoint = viewerInstance.current.viewport.pointFromPixel(webPoint);
+      // Adiciona manipulador de evento para capturar coordenadas do mouse apenas na aba "capturar"
+      if (activeTab === 'capture') {
+        viewerInstance.current.addHandler('canvas-click', function (event) {
+          const webPoint = event.position;
+          const viewportPoint = viewerInstance.current.viewport.pointFromPixel(webPoint);
 
-        // Limpar todos os marcadores existentes
-        clearAllMarkers();
+          // Limpar todos os marcadores existentes
+          clearAllMarkers();
 
-        // Cria um novo elemento para o marcador
-        const marker = document.createElement('div');
-        marker.className = 'coordinate-marker';
-        marker.style.width = '10px';
-        marker.style.height = '10px';
-        marker.style.borderRadius = '50%';
-        marker.style.backgroundColor = 'red';
+          // Cria um novo elemento para o marcador
+          const marker = document.createElement('div');
+          marker.className = 'coordinate-marker';
+          marker.style.width = '10px';
+          marker.style.height = '10px';
+          marker.style.borderRadius = '50%';
+          marker.style.backgroundColor = 'red';
 
-        // Adiciona o novo marcador
-        try {
-          const newOverlay = viewerInstance.current.addOverlay({
-            element: marker,
-            location: new OpenSeadragon.Point(viewportPoint.x, viewportPoint.y),
-            placement: OpenSeadragon.Placement.CENTER
-          });
+          // Adiciona o novo marcador
+          try {
+            const newOverlay = viewerInstance.current.addOverlay({
+              element: marker,
+              location: new OpenSeadragon.Point(viewportPoint.x, viewportPoint.y),
+              placement: OpenSeadragon.Placement.CENTER
+            });
 
-          setOverlay(newOverlay);
+            setOverlay(newOverlay);
 
-          // Atualiza as coordenadas com 3 casas decimais
-          setCoordinates({
-            x: viewportPoint.x.toFixed(3),
-            y: viewportPoint.y.toFixed(3)
-          });
+            // Atualiza as coordenadas com 3 casas decimais
+            setCoordinates({
+              x: viewportPoint.x.toFixed(3),
+              y: viewportPoint.y.toFixed(3)
+            });
 
-          // Define o nome do arquivo como source padrão
-          if (!coordinateSource && pdfData?.filename) {
-            setCoordinateSource(pdfData.filename);
+            // Define o nome do arquivo como source padrão
+            if (!coordinateSource && pdfData?.filename) {
+              setCoordinateSource(pdfData.filename);
+            }
+          } catch (error) {
+            console.error('Erro ao adicionar marcador:', error);
           }
-        } catch (error) {
-          console.error('Erro ao adicionar marcador:', error);
-        }
-      });
+        });
+      }
     }
 
     return () => {
@@ -245,7 +247,7 @@ function App() {
         viewerInstance.current = null;
       }
     };
-  }, [pdfData, currentPage]);
+  }, [pdfData, currentPage, activeTab]);
 
   // Evento para prevenir erros quando o componente é desmontado
   useEffect(() => {
@@ -592,75 +594,6 @@ function App() {
         </div>
       )}
 
-      {activeTab === 'find' && (
-        <div className="find-point-section">
-          <h3>Ache o Ponto</h3>
-          <div className="find-point-container">
-            <div className="search-container" ref={searchInputRef}>
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Buscar pontos salvos..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => setShowSuggestions(true)}
-              />
-              {showSuggestions && searchResults.length > 0 && (
-                <ul className="autocomplete-results">
-                  {searchResults.map((result, index) => (
-                    <li
-                      key={index}
-                      onClick={() => handleSelectSuggestion(result)}
-                    >
-                      {result}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {loadingAllCoordinates ? (
-              <p>Carregando coordenadas...</p>
-            ) : filteredCoordinates.length === 0 ? (
-              <p>Nenhuma coordenada encontrada {searchTerm && `para "${searchTerm}"`}.</p>
-            ) : (
-              <div className="all-coordinates-list">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Fonte</th>
-                      <th>Coordenadas</th>
-                      <th>Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCoordinates.map((coord) => (
-                      <tr key={coord.id}>
-                        <td>{coord.name}</td>
-                        <td>{coord.source || "Desconhecido"}</td>
-                        <td>({coord.x}, {coord.y})</td>
-                        <td>
-                          <button
-                            className="go-to-point-btn"
-                            onClick={() => navigateToSavedCoordinate(coord)}
-                          >
-                            Ir para o ponto
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {pdfData && activeTab === 'capture' && (
         <div className="content-container">
           <div className="viewer-container">
@@ -715,10 +648,6 @@ function App() {
               <button onClick={saveCoordinate}>Salvar Coordenada</button>
               <button onClick={exportCoordinatesCsv} className="export-btn">Exportar CSV</button>
             </div>
-            <SavedCoordinatesList
-              imageId={pdfData?.session_id}
-              onNavigate={navigateToSavedCoordinate}
-            />
             <div className="coordinate-info">
               <p>Clique na imagem para obter coordenadas</p>
               <p>Coordenadas atuais: ({coordinates.x}, {coordinates.y})</p>
@@ -727,22 +656,92 @@ function App() {
         </div>
       )}
 
-      {pdfData && activeTab === 'find' && (
-        <div className="viewer-only-container">
-          <div className="viewer-container">
-            <div id="openseadragon-viewer"></div>
-            <div className="viewer-controls">
-              <button id="zoom-in">+</button>
-              <button id="zoom-out">-</button>
-              <button id="home">⌂</button>
-              <button id="full-page">⤢</button>
+      {activeTab === 'find' && (
+        <div className="find-point-section">
+          <h3>Ache o Ponto</h3>
+          <div className="find-point-container">
+            <div className="search-container" ref={searchInputRef}>
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Buscar pontos salvos..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+              />
+              {showSuggestions && searchResults.length > 0 && (
+                <ul className="autocomplete-results">
+                  {searchResults.map((result, index) => (
+                    <li
+                      key={index}
+                      onClick={() => handleSelectSuggestion(result)}
+                    >
+                      {result}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <div className="pagination">
-              <button onClick={prevPage} disabled={currentPage === 1}>Anterior</button>
-              <span>Página {currentPage} de {pdfData.pages.length}</span>
-              <button onClick={nextPage} disabled={currentPage === pdfData.pages.length}>Próxima</button>
-            </div>
+
+            {loadingAllCoordinates ? (
+              <p>Carregando coordenadas...</p>
+            ) : filteredCoordinates.length === 0 ? (
+              <p>Nenhuma coordenada encontrada {searchTerm && `para "${searchTerm}"`}.</p>
+            ) : (
+              <div className="all-coordinates-list">
+                <p className="coordinates-info">Clique em "Ir para o ponto" para navegar até a coordenada selecionada.</p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Fonte</th>
+                      <th>Coordenadas</th>
+                      <th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCoordinates.map((coord) => (
+                      <tr key={coord.id}>
+                        <td>{coord.name}</td>
+                        <td>{coord.source || "Desconhecido"}</td>
+                        <td>({coord.x}, {coord.y})</td>
+                        <td>
+                          <button
+                            className="go-to-point-btn"
+                            onClick={() => navigateToSavedCoordinate(coord)}
+                          >
+                            Ir para o ponto
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
+
+          {pdfData && (
+            <div className="viewer-only-container">
+              <div className="viewer-container">
+                <div id="openseadragon-viewer"></div>
+                <div className="viewer-controls">
+                  <button id="zoom-in">+</button>
+                  <button id="zoom-out">-</button>
+                  <button id="home">⌂</button>
+                  <button id="full-page">⤢</button>
+                </div>
+                <div className="pagination">
+                  <button onClick={prevPage} disabled={currentPage === 1}>Anterior</button>
+                  <span>Página {currentPage} de {pdfData.pages.length}</span>
+                  <button onClick={nextPage} disabled={currentPage === pdfData.pages.length}>Próxima</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
