@@ -10,11 +10,15 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [coordinates, setCoordinates] = useState({ x: '', y: '' });
   const [coordinateName, setCoordinateName] = useState('');
+  const [coordinateSource, setCoordinateSource] = useState('');
   const [overlay, setOverlay] = useState(null);
   const [activeMarker, setActiveMarker] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [imageHistory, setImageHistory] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [activeTab, setActiveTab] = useState('capture'); // 'capture' ou 'find'
+  const [allSavedCoordinates, setAllSavedCoordinates] = useState([]);
+  const [loadingAllCoordinates, setLoadingAllCoordinates] = useState(false);
 
   const viewerRef = useRef(null);
   const viewerInstance = useRef(null);
@@ -22,6 +26,7 @@ function App() {
   // Carrega o histórico de imagens
   useEffect(() => {
     fetchImageHistory();
+    fetchAllSavedCoordinates();
   }, []);
 
   const fetchImageHistory = async () => {
@@ -36,6 +41,26 @@ function App() {
     } catch (error) {
       console.error('Erro ao carregar histórico de imagens:', error);
       // Não exibe alerta aqui para não interromper a experiência do usuário
+    }
+  };
+
+  // Carrega todas as coordenadas salvas
+  const fetchAllSavedCoordinates = async () => {
+    setLoadingAllCoordinates(true);
+    try {
+      console.log('Buscando todas as coordenadas salvas...');
+      const response = await fetch('http://localhost:8000/all-coordinates');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log(`Encontradas ${data.length} coordenadas salvas`);
+      setAllSavedCoordinates(data);
+    } catch (error) {
+      console.error('Erro ao carregar todas as coordenadas:', error);
+    } finally {
+      setLoadingAllCoordinates(false);
     }
   };
 
@@ -55,15 +80,41 @@ function App() {
     }
   };
 
-  // Inicializa ou atualiza o visualizador OpenSeadragon
+  const clearAllMarkers = () => {
+    // Remove o marcador ativo se existir
+    if (activeMarker && viewerInstance.current) {
+      try {
+        viewerInstance.current.removeOverlay(activeMarker);
+        console.log('Marcador ativo removido');
+      } catch (error) {
+        console.error('Erro ao remover marcador ativo:', error);
+      }
+      setActiveMarker(null);
+    }
+
+    // Remove o marcador de clique atual se existir
+    if (overlay && viewerInstance.current) {
+      try {
+        viewerInstance.current.removeOverlay(overlay);
+        console.log('Marcador de clique removido');
+      } catch (error) {
+        console.error('Erro ao remover marcador de clique:', error);
+      }
+      setOverlay(null);
+    }
+  };
+
   useEffect(() => {
     if (pdfData && pdfData.pages.length > 0) {
       const currentPageData = pdfData.pages.find(p => p.page_num === currentPage);
 
       if (!currentPageData) return;
 
+      // Limpa os marcadores antes de destruir a instância atual
       if (viewerInstance.current) {
+        clearAllMarkers();
         viewerInstance.current.destroy();
+        viewerInstance.current = null;
       }
 
       viewerInstance.current = OpenSeadragon({
@@ -79,7 +130,7 @@ function App() {
         zoomOutButton: "zoom-out",
         homeButton: "home",
         fullPageButton: "full-page",
-        maxZoomPixelRatio: 2,
+        maxZoomPixelRatio: 3,
         animationTime: 0.5,
         visibilityRatio: 1,
         constrainDuringPan: true
@@ -90,10 +141,8 @@ function App() {
         const webPoint = event.position;
         const viewportPoint = viewerInstance.current.viewport.pointFromPixel(webPoint);
 
-        // Remove marcador anterior se existir
-        if (overlay) {
-          viewerInstance.current.removeOverlay(overlay);
-        }
+        // Limpar todos os marcadores existentes
+        clearAllMarkers();
 
         // Cria um novo elemento para o marcador
         const marker = document.createElement('div');
@@ -104,31 +153,51 @@ function App() {
         marker.style.backgroundColor = 'red';
 
         // Adiciona o novo marcador
-        const newOverlay = viewerInstance.current.addOverlay({
-          element: marker,
-          location: new OpenSeadragon.Point(viewportPoint.x, viewportPoint.y),
-          placement: OpenSeadragon.Placement.CENTER
-        });
+        try {
+          const newOverlay = viewerInstance.current.addOverlay({
+            element: marker,
+            location: new OpenSeadragon.Point(viewportPoint.x, viewportPoint.y),
+            placement: OpenSeadragon.Placement.CENTER
+          });
 
-        setOverlay(newOverlay);
+          setOverlay(newOverlay);
 
-        // Atualiza as coordenadas
-        setCoordinates({
-          x: viewportPoint.x.toFixed(3),
-          y: viewportPoint.y.toFixed(3)
-        });
+          // Atualiza as coordenadas com 3 casas decimais
+          setCoordinates({
+            x: viewportPoint.x.toFixed(3),
+            y: viewportPoint.y.toFixed(3)
+          });
+
+          // Define o nome do arquivo como source padrão
+          if (!coordinateSource && pdfData?.filename) {
+            setCoordinateSource(pdfData.filename);
+          }
+        } catch (error) {
+          console.error('Erro ao adicionar marcador:', error);
+        }
       });
-
-      // Não renderizamos mais todos os marcadores salvos automaticamente
-      // A renderização ocorre apenas quando o usuário seleciona um marcador específico
     }
 
     return () => {
+      clearAllMarkers();
       if (viewerInstance.current) {
         viewerInstance.current.destroy();
+        viewerInstance.current = null;
       }
     };
   }, [pdfData, currentPage]);
+
+  // Evento para prevenir erros quando o componente é desmontado
+  useEffect(() => {
+    return () => {
+      // Limpa os marcadores e estados
+      if (viewerInstance.current) {
+        clearAllMarkers();
+        viewerInstance.current.destroy();
+        viewerInstance.current = null;
+      }
+    };
+  }, []);
 
   // Função para salvar coordenadas no banco de dados
   const saveCoordinate = async () => {
@@ -138,6 +207,14 @@ function App() {
     }
 
     try {
+      console.log('Enviando coordenada para o servidor:', {
+        name: coordinateName,
+        x: parseFloat(coordinates.x),
+        y: parseFloat(coordinates.y),
+        page: currentPage,
+        source: coordinateSource || pdfData.filename
+      });
+
       const response = await fetch(`http://localhost:8000/coordinates/${pdfData.session_id}`, {
         method: 'POST',
         headers: {
@@ -147,7 +224,8 @@ function App() {
           name: coordinateName,
           x: parseFloat(coordinates.x),
           y: parseFloat(coordinates.y),
-          page: currentPage
+          page: currentPage,
+          source: coordinateSource || pdfData.filename
         }),
       });
 
@@ -158,6 +236,13 @@ function App() {
 
       alert('Coordenada salva com sucesso!');
       setCoordinateName('');
+
+      // Limpa o marcador após salvar
+      console.log('Limpando marcadores após salvar coordenada');
+      clearAllMarkers();
+
+      // Atualiza o estado de todas as coordenadas salvas
+      fetchAllSavedCoordinates();
 
       // Atualiza a lista de coordenadas salvas se estiver usando o componente SavedCoordinatesList
       if (pdfData?.session_id) {
@@ -174,41 +259,69 @@ function App() {
     }
   };
 
+  // Exportar coordenadas para CSV
+  const exportCoordinatesCsv = async () => {
+    if (!pdfData || !pdfData.session_id) {
+      alert('Nenhuma imagem carregada');
+      return;
+    }
+
+    try {
+      window.open(`http://localhost:8000/coordinates/export/${pdfData.session_id}`, '_blank');
+    } catch (error) {
+      console.error('Erro ao exportar coordenadas:', error);
+      alert(`Erro ao exportar coordenadas: ${error.message || 'Falha na conexão com o servidor'}`);
+    }
+  };
+
   // Função para navegar até uma coordenada salva
   const navigateToSavedCoordinate = async (coord) => {
+    // Se a coordenada tem uma imagem diferente da atual, precisamos carregar essa imagem primeiro
+    if (coord.image_id && (!pdfData || coord.image_id !== pdfData.session_id)) {
+      const imageInfo = imageHistory.find(img => img.id === coord.image_id);
+      if (imageInfo) {
+        await loadImageFromHistory(imageInfo);
+      } else {
+        alert('Imagem associada à coordenada não encontrada no histórico');
+        return;
+      }
+    }
+
     setCurrentPage(coord.page);
     setCoordinates({ x: coord.x.toString(), y: coord.y.toString() });
 
     // Esperar pela atualização da página, se necessário
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     // Mostrar marcador
     if (viewerInstance.current) {
-      // Limpar marcador anterior
-      if (activeMarker) {
-        viewerInstance.current.removeOverlay(activeMarker);
-      }
+      // Limpar marcadores anteriores
+      clearAllMarkers();
 
       // Criar novo marcador
       const marker = document.createElement('div');
       marker.className = 'saved-coordinate-marker';
-      marker.style.width = '20px';
-      marker.style.height = '20px';
+      marker.style.width = '10px';
+      marker.style.height = '10px';
       marker.style.borderRadius = '50%';
       marker.style.backgroundColor = 'green';
       marker.title = coord.name;
 
-      // Adicionar novo marcador
-      const newMarker = viewerInstance.current.addOverlay({
-        element: marker,
-        location: new OpenSeadragon.Point(parseFloat(coord.x), parseFloat(coord.y)),
-        placement: OpenSeadragon.Placement.CENTER
-      });
+      try {
+        // Adicionar novo marcador
+        const newMarker = viewerInstance.current.addOverlay({
+          element: marker,
+          location: new OpenSeadragon.Point(parseFloat(coord.x), parseFloat(coord.y)),
+          placement: OpenSeadragon.Placement.CENTER
+        });
 
-      setActiveMarker(newMarker);
+        setActiveMarker(newMarker);
 
-      // Navegar para a coordenada
-      navigateToCoordinates(coord.x, coord.y);
+        // Navegar para a coordenada
+        navigateToCoordinates(coord.x, coord.y);
+      } catch (error) {
+        console.error('Erro ao adicionar marcador para coordenada salva:', error);
+      }
     }
   };
 
@@ -262,8 +375,14 @@ function App() {
       setPdfData(data);
       setCurrentPage(1);
 
+      // Define o nome do arquivo como source padrão
+      if (data.filename) {
+        setCoordinateSource(data.filename);
+      }
+
       // Atualiza o histórico após upload
       fetchImageHistory();
+      fetchAllSavedCoordinates();
     } catch (error) {
       console.error("Erro ao fazer upload do PDF:", error);
       alert(`Erro ao processar o PDF: ${error.message || 'Falha na conexão com o servidor'}`);
@@ -285,6 +404,12 @@ function App() {
       });
       setCurrentPage(1);
       setHistoryOpen(false);
+
+      // Define o nome do arquivo como source padrão
+      setCoordinateSource(image.filename);
+
+      // Limpa marcadores anteriores
+      clearAllMarkers();
     } catch (error) {
       console.error('Erro ao carregar imagem do histórico:', error);
     }
@@ -293,12 +418,16 @@ function App() {
   const nextPage = () => {
     if (pdfData && currentPage < pdfData.pages.length) {
       setCurrentPage(currentPage + 1);
+      // Limpa marcadores ao trocar de página
+      clearAllMarkers();
     }
   };
 
   const prevPage = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1);
+      // Limpa marcadores ao trocar de página
+      clearAllMarkers();
     }
   };
 
@@ -365,43 +494,112 @@ function App() {
           </div>
 
           <div className="coordinates-panel">
-            <h3>Navegação por Coordenadas</h3>
-            <div>
-              <label>
-                X:
-                <input
-                  type="text"
-                  value={coordinates.x}
-                  onChange={(e) => setCoordinates({ ...coordinates, x: e.target.value })}
+            <div className="tabs">
+              <button
+                className={activeTab === 'capture' ? 'active' : ''}
+                onClick={() => setActiveTab('capture')}
+              >
+                Capturar Coordenadas
+              </button>
+              <button
+                className={activeTab === 'find' ? 'active' : ''}
+                onClick={() => setActiveTab('find')}
+              >
+                Ache o Ponto
+              </button>
+            </div>
+
+            {activeTab === 'capture' && (
+              <>
+                <h3>Captura de Coordenadas</h3>
+                <div>
+                  <label>
+                    X:
+                    <input
+                      type="text"
+                      value={coordinates.x}
+                      onChange={(e) => setCoordinates({ ...coordinates, x: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Y:
+                    <input
+                      type="text"
+                      value={coordinates.y}
+                      onChange={(e) => setCoordinates({ ...coordinates, y: e.target.value })}
+                    />
+                  </label>
+                  <button onClick={() => navigateToCoordinates()}>Navegar</button>
+                </div>
+                <div className="coordinate-save">
+                  <input
+                    type="text"
+                    value={coordinateName}
+                    onChange={(e) => setCoordinateName(e.target.value)}
+                    placeholder="Nome do ponto"
+                  />
+                  <input
+                    type="text"
+                    value={coordinateSource}
+                    onChange={(e) => setCoordinateSource(e.target.value)}
+                    placeholder="Fonte/origem da imagem"
+                  />
+                  <button onClick={saveCoordinate}>Salvar Coordenada</button>
+                  <button onClick={exportCoordinatesCsv} className="export-btn">Exportar CSV</button>
+                </div>
+                <SavedCoordinatesList
+                  imageId={pdfData?.session_id}
+                  onNavigate={navigateToSavedCoordinate}
                 />
-              </label>
-              <label>
-                Y:
-                <input
-                  type="text"
-                  value={coordinates.y}
-                  onChange={(e) => setCoordinates({ ...coordinates, y: e.target.value })}
-                />
-              </label>
-              <button onClick={() => navigateToCoordinates()}>Navegar</button>
-            </div>
-            <div className="coordinate-save">
-              <input
-                type="text"
-                value={coordinateName}
-                onChange={(e) => setCoordinateName(e.target.value)}
-                placeholder="Nome do ponto"
-              />
-              <button onClick={saveCoordinate}>Salvar Coordenada</button>
-            </div>
-            <SavedCoordinatesList
-              imageId={pdfData?.session_id}
-              onNavigate={navigateToSavedCoordinate}
-            />
-            <div className="coordinate-info">
-              <p>Clique na imagem para obter coordenadas</p>
-              <p>Coordenadas atuais: ({coordinates.x}, {coordinates.y})</p>
-            </div>
+                <div className="coordinate-info">
+                  <p>Clique na imagem para obter coordenadas</p>
+                  <p>Coordenadas atuais: ({coordinates.x}, {coordinates.y})</p>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'find' && (
+              <>
+                <h3>Ache o Ponto</h3>
+                <div className="find-point-container">
+                  {loadingAllCoordinates ? (
+                    <p>Carregando coordenadas...</p>
+                  ) : allSavedCoordinates.length === 0 ? (
+                    <p>Nenhuma coordenada salva encontrada.</p>
+                  ) : (
+                    <div className="all-coordinates-list">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Nome</th>
+                            <th>Fonte</th>
+                            <th>Coordenadas</th>
+                            <th>Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allSavedCoordinates.map((coord) => (
+                            <tr key={coord.id}>
+                              <td>{coord.name}</td>
+                              <td>{coord.source || "Desconhecido"}</td>
+                              <td>({coord.x}, {coord.y})</td>
+                              <td>
+                                <button
+                                  className="go-to-point-btn"
+                                  onClick={() => navigateToSavedCoordinate(coord)}
+                                >
+                                  Ir para o ponto
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -501,7 +699,10 @@ function SavedCoordinatesList({ imageId, onNavigate }) {
         <ul>
           {coordinates.map((coord) => (
             <li key={coord.id}>
-              <span>{coord.name} ({coord.x}, {coord.y})</span>
+              <span>
+                {coord.name} ({coord.x}, {coord.y})
+                <small className="source-text">{coord.source}</small>
+              </span>
               <div>
                 <button onClick={() => onNavigate(coord)}>Ir para ponto</button>
                 <button

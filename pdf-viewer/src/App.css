@@ -139,6 +139,7 @@ button:disabled {
 .coordinate-save {
   margin: 15px 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
@@ -147,6 +148,22 @@ button:disabled {
   padding: 5px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  min-width: 150px;
+}
+
+.export-btn {
+  background-color: #007bff;
+}
+
+.export-btn:hover {
+  background-color: #0069d9;
+}
+
+.source-text {
+  display: block;
+  color: #6c757d;
+  font-size: 0.8rem;
+  margin-top: 3px;
 }
 
 .saved-coordinates {
@@ -164,9 +181,9 @@ button:disabled {
 .saved-coordinates li {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  margin: 5px 0;
+  align-items: flex-start;
+  padding: 10px;
+  margin: 8px 0;
   background-color: #f5f5f5;
   border-radius: 4px;
 }
@@ -297,4 +314,75 @@ button:disabled {
   .content-container {
     flex-direction: column;
   }
+}
+
+.tabs {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.tabs button {
+  padding: 10px 15px;
+  border: none;
+  background-color: transparent;
+  color: #6c757d;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tabs button:hover {
+  color: #495057;
+  border-bottom-color: #adb5bd;
+}
+
+.tabs button.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background-color: transparent;
+}
+
+.find-point-container {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.all-coordinates-list {
+  width: 100%;
+}
+
+.all-coordinates-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.all-coordinates-list th,
+.all-coordinates-list td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.all-coordinates-list th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.all-coordinates-list tr:hover {
+  background-color: #f1f3f5;
+}
+
+.go-to-point-btn {
+  background-color: #28a745;
+  color: white;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.go-to-point-btn:hover {
+  background-color: #218838;
 }
