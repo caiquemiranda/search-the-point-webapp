@@ -194,3 +194,107 @@ button:disabled {
   pointer-events: none;
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
 }
+
+.history-sidebar {
+  position: fixed;
+  top: 100px;
+  left: 0;
+  width: 300px;
+  height: calc(100vh - 100px);
+  background-color: #f8f9fa;
+  border-right: 1px solid #dee2e6;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+}
+
+.history-sidebar h3 {
+  margin-top: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.history-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.history-sidebar li {
+  margin-bottom: 10px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.history-sidebar li:hover {
+  background-color: #e9ecef;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+}
+
+.history-thumbnail {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 3px;
+  margin-right: 10px;
+  border: 1px solid #dee2e6;
+}
+
+.history-info {
+  flex: 1;
+}
+
+.history-filename {
+  margin: 0 0 5px 0;
+  font-weight: bold;
+  word-break: break-word;
+}
+
+.history-date {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.delete-btn {
+  background-color: #dc3545;
+  margin-left: 5px;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+}
+
+.upload-section button {
+  margin-right: 10px;
+}
+
+.error-message {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+/* Ajuste para o layout responsivo */
+@media (max-width: 768px) {
+  .history-sidebar {
+    width: 100%;
+    height: 300px;
+    position: static;
+    margin-bottom: 15px;
+  }
+
+  .content-container {
+    flex-direction: column;
+  }
+}
