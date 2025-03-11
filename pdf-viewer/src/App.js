@@ -336,52 +336,91 @@ function App() {
 
   // Função para navegar até uma coordenada salva
   const navigateToSavedCoordinate = async (coord) => {
-    // Se a coordenada tem uma imagem diferente da atual, precisamos carregar essa imagem primeiro
-    if (coord.image_id && (!pdfData || coord.image_id !== pdfData.session_id)) {
-      const imageInfo = imageHistory.find(img => img.id === coord.image_id);
-      if (imageInfo) {
-        await loadImageFromHistory(imageInfo);
+    try {
+      console.log('Navegando para coordenada salva:', coord);
+
+      // Mudar para a aba 'find' para exibir o visualizador
+      setActiveTab('find');
+
+      // Se a coordenada tem uma imagem diferente da atual, ou nenhuma imagem está carregada
+      if (!pdfData || coord.image_id !== pdfData.session_id) {
+        console.log('Carregando imagem associada à coordenada...');
+        const imageInfo = imageHistory.find(img => img.id === coord.image_id);
+
+        if (imageInfo) {
+          // Carregar a imagem do histórico
+          await loadImageFromHistory(imageInfo);
+          console.log('Imagem carregada com sucesso');
+        } else {
+          // Se a imagem não estiver no histórico, buscar direto do servidor
+          console.log('Imagem não encontrada no histórico, buscando informações do servidor...');
+          try {
+            const response = await fetch(`http://localhost:8000/image-info/${coord.image_id}`);
+            if (response.ok) {
+              const imageData = await response.json();
+              setPdfData({
+                session_id: imageData.id,
+                filename: imageData.filename,
+                pages: Array.from({ length: imageData.page_count }, (_, i) => ({
+                  page_num: i + 1,
+                  path: `/images/${imageData.id}/page_${i + 1}.png`
+                }))
+              });
+              console.log('Informações da imagem obtidas do servidor');
+            } else {
+              throw new Error('Falha ao buscar informações da imagem');
+            }
+          } catch (error) {
+            console.error('Erro ao buscar imagem:', error);
+            alert('Imagem associada à coordenada não encontrada. Tente carregar a imagem manualmente.');
+            return;
+          }
+        }
+      }
+
+      // Definir a página correta
+      setCurrentPage(coord.page);
+      setCoordinates({ x: coord.x.toString(), y: coord.y.toString() });
+
+      // Esperar pela atualização da página, se necessário
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Mostrar marcador
+      if (viewerInstance.current) {
+        // Limpar marcadores anteriores
+        clearAllMarkers();
+
+        // Criar novo marcador
+        const marker = document.createElement('div');
+        marker.className = 'saved-coordinate-marker';
+        marker.style.width = '10px';
+        marker.style.height = '10px';
+        marker.style.borderRadius = '50%';
+        marker.style.backgroundColor = 'green';
+        marker.title = coord.name;
+
+        try {
+          // Adicionar novo marcador
+          const newMarker = viewerInstance.current.addOverlay({
+            element: marker,
+            location: new OpenSeadragon.Point(parseFloat(coord.x), parseFloat(coord.y)),
+            placement: OpenSeadragon.Placement.CENTER
+          });
+
+          setActiveMarker(newMarker);
+
+          // Navegar para a coordenada
+          navigateToCoordinates(coord.x, coord.y);
+          console.log('Navegação para coordenada concluída');
+        } catch (error) {
+          console.error('Erro ao adicionar marcador para coordenada salva:', error);
+        }
       } else {
-        alert('Imagem associada à coordenada não encontrada no histórico');
-        return;
+        console.error('Visualizador não inicializado');
       }
-    }
-
-    setCurrentPage(coord.page);
-    setCoordinates({ x: coord.x.toString(), y: coord.y.toString() });
-
-    // Esperar pela atualização da página, se necessário
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Mostrar marcador
-    if (viewerInstance.current) {
-      // Limpar marcadores anteriores
-      clearAllMarkers();
-
-      // Criar novo marcador
-      const marker = document.createElement('div');
-      marker.className = 'saved-coordinate-marker';
-      marker.style.width = '10px';
-      marker.style.height = '10px';
-      marker.style.borderRadius = '50%';
-      marker.style.backgroundColor = 'green';
-      marker.title = coord.name;
-
-      try {
-        // Adicionar novo marcador
-        const newMarker = viewerInstance.current.addOverlay({
-          element: marker,
-          location: new OpenSeadragon.Point(parseFloat(coord.x), parseFloat(coord.y)),
-          placement: OpenSeadragon.Placement.CENTER
-        });
-
-        setActiveMarker(newMarker);
-
-        // Navegar para a coordenada
-        navigateToCoordinates(coord.x, coord.y);
-      } catch (error) {
-        console.error('Erro ao adicionar marcador para coordenada salva:', error);
-      }
+    } catch (error) {
+      console.error('Erro ao navegar para coordenada:', error);
+      alert('Houve um erro ao navegar para a coordenada selecionada');
     }
   };
 
@@ -501,17 +540,34 @@ function App() {
         <h1>Visualizador de PDF com Coordenadas</h1>
       </header>
 
-      <form className="upload-section" onSubmit={handleSubmit}>
-        <input type="file" accept=".pdf" onChange={handleFileChange} />
-        <button type="submit" disabled={loading}>
-          {loading ? "Processando..." : "Processar PDF"}
+      <div className="tabs main-tabs">
+        <button
+          className={activeTab === 'capture' ? 'active' : ''}
+          onClick={() => setActiveTab('capture')}
+        >
+          Capturar Coordenadas
         </button>
-        <button type="button" onClick={toggleHistory}>
-          {historyOpen ? "Fechar Histórico" : "Ver Histórico"}
+        <button
+          className={activeTab === 'find' ? 'active' : ''}
+          onClick={() => setActiveTab('find')}
+        >
+          Ache o Ponto
         </button>
-      </form>
+      </div>
 
-      {historyOpen && (
+      {activeTab === 'capture' && (
+        <form className="upload-section" onSubmit={handleSubmit}>
+          <input type="file" accept=".pdf" onChange={handleFileChange} />
+          <button type="submit" disabled={loading}>
+            {loading ? "Processando..." : "Processar PDF"}
+          </button>
+          <button type="button" onClick={toggleHistory}>
+            {historyOpen ? "Fechar Histórico" : "Ver Histórico"}
+          </button>
+        </form>
+      )}
+
+      {historyOpen && activeTab === 'capture' && (
         <div className="history-sidebar">
           <h3>Histórico de Imagens</h3>
           <ul>
@@ -536,7 +592,76 @@ function App() {
         </div>
       )}
 
-      {pdfData && (
+      {activeTab === 'find' && (
+        <div className="find-point-section">
+          <h3>Ache o Ponto</h3>
+          <div className="find-point-container">
+            <div className="search-container" ref={searchInputRef}>
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Buscar pontos salvos..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+              />
+              {showSuggestions && searchResults.length > 0 && (
+                <ul className="autocomplete-results">
+                  {searchResults.map((result, index) => (
+                    <li
+                      key={index}
+                      onClick={() => handleSelectSuggestion(result)}
+                    >
+                      {result}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {loadingAllCoordinates ? (
+              <p>Carregando coordenadas...</p>
+            ) : filteredCoordinates.length === 0 ? (
+              <p>Nenhuma coordenada encontrada {searchTerm && `para "${searchTerm}"`}.</p>
+            ) : (
+              <div className="all-coordinates-list">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Fonte</th>
+                      <th>Coordenadas</th>
+                      <th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCoordinates.map((coord) => (
+                      <tr key={coord.id}>
+                        <td>{coord.name}</td>
+                        <td>{coord.source || "Desconhecido"}</td>
+                        <td>({coord.x}, {coord.y})</td>
+                        <td>
+                          <button
+                            className="go-to-point-btn"
+                            onClick={() => navigateToSavedCoordinate(coord)}
+                          >
+                            Ir para o ponto
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {pdfData && activeTab === 'capture' && (
         <div className="content-container">
           <div className="viewer-container">
             <div id="openseadragon-viewer"></div>
@@ -554,138 +679,69 @@ function App() {
           </div>
 
           <div className="coordinates-panel">
-            <div className="tabs">
-              <button
-                className={activeTab === 'capture' ? 'active' : ''}
-                onClick={() => setActiveTab('capture')}
-              >
-                Capturar Coordenadas
-              </button>
-              <button
-                className={activeTab === 'find' ? 'active' : ''}
-                onClick={() => setActiveTab('find')}
-              >
-                Ache o Ponto
-              </button>
-            </div>
-
-            {activeTab === 'capture' && (
-              <>
-                <h3>Captura de Coordenadas</h3>
-                <div>
-                  <label>
-                    X:
-                    <input
-                      type="text"
-                      value={coordinates.x}
-                      onChange={(e) => setCoordinates({ ...coordinates, x: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Y:
-                    <input
-                      type="text"
-                      value={coordinates.y}
-                      onChange={(e) => setCoordinates({ ...coordinates, y: e.target.value })}
-                    />
-                  </label>
-                  <button onClick={() => navigateToCoordinates()}>Navegar</button>
-                </div>
-                <div className="coordinate-save">
-                  <input
-                    type="text"
-                    value={coordinateName}
-                    onChange={(e) => setCoordinateName(e.target.value)}
-                    placeholder="Nome do ponto"
-                  />
-                  <input
-                    type="text"
-                    value={coordinateSource}
-                    onChange={(e) => setCoordinateSource(e.target.value)}
-                    placeholder="Fonte/origem da imagem"
-                  />
-                  <button onClick={saveCoordinate}>Salvar Coordenada</button>
-                  <button onClick={exportCoordinatesCsv} className="export-btn">Exportar CSV</button>
-                </div>
-                <SavedCoordinatesList
-                  imageId={pdfData?.session_id}
-                  onNavigate={navigateToSavedCoordinate}
+            <h3>Captura de Coordenadas</h3>
+            <div>
+              <label>
+                X:
+                <input
+                  type="text"
+                  value={coordinates.x}
+                  onChange={(e) => setCoordinates({ ...coordinates, x: e.target.value })}
                 />
-                <div className="coordinate-info">
-                  <p>Clique na imagem para obter coordenadas</p>
-                  <p>Coordenadas atuais: ({coordinates.x}, {coordinates.y})</p>
-                </div>
-              </>
-            )}
+              </label>
+              <label>
+                Y:
+                <input
+                  type="text"
+                  value={coordinates.y}
+                  onChange={(e) => setCoordinates({ ...coordinates, y: e.target.value })}
+                />
+              </label>
+              <button onClick={() => navigateToCoordinates()}>Navegar</button>
+            </div>
+            <div className="coordinate-save">
+              <input
+                type="text"
+                value={coordinateName}
+                onChange={(e) => setCoordinateName(e.target.value)}
+                placeholder="Nome do ponto"
+              />
+              <input
+                type="text"
+                value={coordinateSource}
+                onChange={(e) => setCoordinateSource(e.target.value)}
+                placeholder="Fonte/origem da imagem"
+              />
+              <button onClick={saveCoordinate}>Salvar Coordenada</button>
+              <button onClick={exportCoordinatesCsv} className="export-btn">Exportar CSV</button>
+            </div>
+            <SavedCoordinatesList
+              imageId={pdfData?.session_id}
+              onNavigate={navigateToSavedCoordinate}
+            />
+            <div className="coordinate-info">
+              <p>Clique na imagem para obter coordenadas</p>
+              <p>Coordenadas atuais: ({coordinates.x}, {coordinates.y})</p>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {activeTab === 'find' && (
-              <>
-                <h3>Ache o Ponto</h3>
-                <div className="find-point-container">
-                  <div className="search-container" ref={searchInputRef}>
-                    <input
-                      type="text"
-                      className="search-input"
-                      placeholder="Buscar pontos salvos..."
-                      value={searchTerm}
-                      onChange={(e) => {
-                        setSearchTerm(e.target.value);
-                        setShowSuggestions(true);
-                      }}
-                      onFocus={() => setShowSuggestions(true)}
-                    />
-                    {showSuggestions && searchResults.length > 0 && (
-                      <ul className="autocomplete-results">
-                        {searchResults.map((result, index) => (
-                          <li
-                            key={index}
-                            onClick={() => handleSelectSuggestion(result)}
-                          >
-                            {result}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  {loadingAllCoordinates ? (
-                    <p>Carregando coordenadas...</p>
-                  ) : filteredCoordinates.length === 0 ? (
-                    <p>Nenhuma coordenada encontrada {searchTerm && `para "${searchTerm}"`}.</p>
-                  ) : (
-                    <div className="all-coordinates-list">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Nome</th>
-                            <th>Fonte</th>
-                            <th>Coordenadas</th>
-                            <th>Ação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredCoordinates.map((coord) => (
-                            <tr key={coord.id}>
-                              <td>{coord.name}</td>
-                              <td>{coord.source || "Desconhecido"}</td>
-                              <td>({coord.x}, {coord.y})</td>
-                              <td>
-                                <button
-                                  className="go-to-point-btn"
-                                  onClick={() => navigateToSavedCoordinate(coord)}
-                                >
-                                  Ir para o ponto
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+      {pdfData && activeTab === 'find' && (
+        <div className="viewer-only-container">
+          <div className="viewer-container">
+            <div id="openseadragon-viewer"></div>
+            <div className="viewer-controls">
+              <button id="zoom-in">+</button>
+              <button id="zoom-out">-</button>
+              <button id="home">⌂</button>
+              <button id="full-page">⤢</button>
+            </div>
+            <div className="pagination">
+              <button onClick={prevPage} disabled={currentPage === 1}>Anterior</button>
+              <span>Página {currentPage} de {pdfData.pages.length}</span>
+              <button onClick={nextPage} disabled={currentPage === pdfData.pages.length}>Próxima</button>
+            </div>
           </div>
         </div>
       )}

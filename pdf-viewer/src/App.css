@@ -437,3 +437,35 @@ button:disabled {
 .autocomplete-results li:hover {
   background-color: #f8f9fa;
 }
+
+.main-tabs {
+  margin: 20px 0;
+  border-bottom: 2px solid #dee2e6;
+  padding-bottom: 0;
+}
+
+.main-tabs button {
+  padding: 12px 20px;
+  font-size: 18px;
+  margin-right: 10px;
+}
+
+.find-point-section {
+  padding: 20px;
+  background-color: white;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.viewer-only-container {
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+}
+
+.viewer-only-container .viewer-container {
+  width: 100%;
+  margin: 0 auto;
+  max-width: 1200px;
+}

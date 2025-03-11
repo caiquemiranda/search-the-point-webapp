@@ -402,6 +402,33 @@ async def delete_coordinate(coordinate_id: int):
             raise HTTPException(status_code=404, detail="Coordenada não encontrada")
         raise HTTPException(status_code=500, detail=f"Erro ao remover coordenada: {str(e)}")
 
+@app.get("/image-info/{image_id}")
+async def get_image_info(image_id: str):
+    """Busca informações de uma imagem pelo ID"""
+    print(f"Buscando informações da imagem {image_id}")
+    try:
+        image = execute_db_query(
+            "SELECT * FROM processed_images WHERE id = ?",
+            (image_id,),
+            fetch_one=True
+        )
+        
+        if not image:
+            print(f"Imagem {image_id} não encontrada")
+            raise HTTPException(status_code=404, detail="Imagem não encontrada")
+        
+        print(f"Informações da imagem {image_id} encontradas: {image['filename']}")
+        return {
+            "id": image["id"],
+            "filename": image["filename"],
+            "upload_date": image["upload_date"],
+            "page_count": image["page_count"],
+            "thumbnail_path": image["thumbnail_path"]
+        }
+    except Exception as e:
+        print(f"Erro ao buscar informações da imagem: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar informações da imagem: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
