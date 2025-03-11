@@ -3,6 +3,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import OpenSeadragon from 'openseadragon';
 import './App.css';
 
+// Configuração do servidor
+const SERVER_URL = 'http://10.0.0.106:8000';
+
 function App() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -78,7 +81,7 @@ function App() {
 
   const fetchImageHistory = async () => {
     try {
-      const response = await fetch('http://localhost:8000/history');
+      const response = await fetch(`${SERVER_URL}/history`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
@@ -87,7 +90,6 @@ function App() {
       setImageHistory(data);
     } catch (error) {
       console.error('Erro ao carregar histórico de imagens:', error);
-      // Não exibe alerta aqui para não interromper a experiência do usuário
     }
   };
 
@@ -96,7 +98,7 @@ function App() {
     setLoadingAllCoordinates(true);
     try {
       console.log('Buscando todas as coordenadas salvas...');
-      const response = await fetch('http://localhost:8000/all-coordinates');
+      const response = await fetch(`${SERVER_URL}/all-coordinates`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
@@ -127,7 +129,7 @@ function App() {
   // Carrega as coordenadas salvas para uma imagem
   const fetchSavedCoordinates = async (imageId) => {
     try {
-      const response = await fetch(`http://localhost:8000/coordinates/${imageId}`);
+      const response = await fetch(`${SERVER_URL}/coordinates/${imageId}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
@@ -181,7 +183,7 @@ function App() {
         id: "openseadragon-viewer",
         tileSources: {
           type: 'image',
-          url: `http://localhost:8000${currentPageData.path}`,
+          url: `${SERVER_URL}${currentPageData.path}`,
           buildPyramid: false
         },
         showNavigationControl: true,
@@ -277,7 +279,7 @@ function App() {
         source: coordinateSource || pdfData.filename
       });
 
-      const response = await fetch(`http://localhost:8000/coordinates/${pdfData.session_id}`, {
+      const response = await fetch(`${SERVER_URL}/coordinates/${pdfData.session_id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -329,7 +331,7 @@ function App() {
     }
 
     try {
-      window.open(`http://localhost:8000/coordinates/export/${pdfData.session_id}`, '_blank');
+      window.open(`${SERVER_URL}/coordinates/export/${pdfData.session_id}`, '_blank');
     } catch (error) {
       console.error('Erro ao exportar coordenadas:', error);
       alert(`Erro ao exportar coordenadas: ${error.message || 'Falha na conexão com o servidor'}`);
@@ -357,7 +359,7 @@ function App() {
           // Se a imagem não estiver no histórico, buscar direto do servidor
           console.log('Imagem não encontrada no histórico, buscando informações do servidor...');
           try {
-            const response = await fetch(`http://localhost:8000/image-info/${coord.image_id}`);
+            const response = await fetch(`${SERVER_URL}/image-info/${coord.image_id}`);
             if (response.ok) {
               const imageData = await response.json();
               setPdfData({
@@ -462,7 +464,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:8000/upload-pdf/', {
+      const response = await fetch(`${SERVER_URL}/upload-pdf/`, {
         method: 'POST',
         body: formData,
       });
@@ -577,7 +579,7 @@ function App() {
               <li key={image.id} onClick={() => loadImageFromHistory(image)}>
                 <div className="history-item">
                   <img
-                    src={`http://localhost:8000${image.thumbnail_path}`}
+                    src={`${SERVER_URL}${image.thumbnail_path}`}
                     alt={image.filename}
                     className="history-thumbnail"
                   />
@@ -786,7 +788,7 @@ function SavedCoordinatesList({ imageId, onNavigate }) {
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:8000/coordinates/${imageId}`);
+      const response = await fetch(`${SERVER_URL}/coordinates/${imageId}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
@@ -805,7 +807,7 @@ function SavedCoordinatesList({ imageId, onNavigate }) {
   const deleteCoordinate = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir esta coordenada?')) {
       try {
-        const response = await fetch(`http://localhost:8000/coordinates/${id}`, {
+        const response = await fetch(`${SERVER_URL}/coordinates/${id}`, {
           method: 'DELETE',
         });
 
