@@ -21,13 +21,16 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend/public:/app/public
+      - ./frontend/src:/app/src
+      - ./frontend/package.json:/app/package.json
     depends_on:
       - backend
     environment:
       - REACT_APP_API_URL=http://localhost:8000
       - WDS_SOCKET_PORT=0
+      - ESLINT_NO_DEV_ERRORS=true
+      - DISABLE_ESLINT_PLUGIN=true
     restart: unless-stopped
     networks:
       - app-network

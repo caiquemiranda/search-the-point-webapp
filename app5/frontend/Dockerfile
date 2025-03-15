@@ -5,9 +5,13 @@ WORKDIR /app
 # Instalar dependências
 COPY package*.json ./
 RUN npm ci
+RUN npm install openseadragon --save
 
 # Copiar o código da aplicação
 COPY . .
+
+# Corrigir permissões
+RUN mkdir -p node_modules/.cache && chmod -R 777 node_modules/.cache
 
 # Porta para o servidor de desenvolvimento
 EXPOSE 3000
