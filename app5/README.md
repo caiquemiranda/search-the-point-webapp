@@ -22,6 +22,11 @@ app5/
 │   ├── package.json     # Dependências do Node.js
 │   └── .env             # Configurações de ambiente
 │
+├── docker-compose.yml   # Configuração Docker Compose
+├── docker-start.bat     # Script para iniciar Docker (Windows)
+├── docker-stop.bat      # Script para parar Docker (Windows)
+├── docker-start.sh      # Script para iniciar Docker (Linux/Mac)
+├── docker-stop.sh       # Script para parar Docker (Linux/Mac)
 ├── start.bat            # Script de execução para Windows
 ├── start.sh             # Script de execução para Linux/Mac
 ├── requirements.txt     # Dependências Python
@@ -30,9 +35,32 @@ app5/
 
 ## Como Executar
 
-### Execução Automatizada (Recomendado)
+### Usando Docker (Recomendado)
 
-Entre na pasta `app5` e execute:
+A maneira mais fácil de executar a aplicação é usando Docker, que não requer instalação de Python ou Node.js na máquina host.
+
+#### Pré-requisitos
+- [Docker](https://www.docker.com/products/docker-desktop)
+- [Docker Compose](https://docs.docker.com/compose/install/) (geralmente já incluído no Docker Desktop)
+
+#### Windows
+```
+docker-start.bat
+```
+
+#### Linux/Mac
+```bash
+chmod +x docker-start.sh
+./docker-start.sh
+```
+
+Para parar os contêineres:
+- Windows: `docker-stop.bat`
+- Linux/Mac: `./docker-stop.sh`
+
+### Execução Local
+
+Se preferir executar diretamente no seu sistema:
 
 #### Windows
 ```

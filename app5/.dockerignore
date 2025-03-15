@@ -1,0 +1,33 @@
+# Arquivos e diretórios comuns
+.git
+.gitignore
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.log
+
+# Dependências e arquivos compilados
+**/node_modules
+**/dist
+**/build
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache
+**/.coverage
+
+# Outros
+**/.idea
+**/.vscode
+**/README.md
+**/Dockerfile
+**/docker-compose.yml
+**/.dockerignore
+
+# Manter o diretório uploads vazio, mas preservar a estrutura
+# Para isso, não ignoramos o diretório inteiro
+backend/uploads/*
+!backend/uploads/.gitkeep 
