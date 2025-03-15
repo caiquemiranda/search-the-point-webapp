@@ -4,7 +4,8 @@ import OpenSeadragon from 'openseadragon';
 import './App.css';
 
 // Configuração do servidor
-const SERVER_URL = 'http://10.0.0.106:8000';
+// Use o host da aplicação atual como padrão ou uma variável de ambiente se definida
+const SERVER_URL = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
 
 function App() {
   const [file, setFile] = useState(null);
