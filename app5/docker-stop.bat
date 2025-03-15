@@ -19,5 +19,19 @@ echo Parando os contêineres...
 %COMPOSE_CMD% down
 
 echo.
-echo Serviços parados com sucesso.
-echo. 
+echo Removendo contêineres parados...
+docker container prune -f
+
+echo.
+echo Removendo imagens não utilizadas...
+docker image prune -af
+
+echo.
+echo Limpando o cache do sistema Docker...
+docker system prune -f --volumes
+
+echo.
+echo Serviços parados e sistema limpo com sucesso.
+echo Todas as imagens, contêineres e cache foram removidos.
+echo.
+echo Para iniciar novamente, use docker-start.bat ou docker-rebuild.bat 
