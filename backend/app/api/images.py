@@ -5,7 +5,7 @@ from ..services.pdf_service import process_pdf_upload
 from ..db.database import execute_db_query
 import os
 
-router = APIRouter(prefix="/images", tags=["images"])
+router = APIRouter(tags=["images"])
 
 @router.post("/upload-pdf/")
 async def upload_pdf_route(file: UploadFile = File(...)):
