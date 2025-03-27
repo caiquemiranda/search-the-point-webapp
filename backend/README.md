@@ -7,11 +7,12 @@ Este é o backend da aplicação Search The Point, desenvolvido com FastAPI.
 ```
 backend/
 ├── app/
-│   ├── api/            # Rotas da API
+│   ├── api/            # Rotas da API (não utilizadas no momento)
 │   ├── core/           # Configurações e constantes
 │   ├── db/             # Configuração do banco de dados
 │   ├── models/         # Modelos Pydantic
-│   └── services/       # Lógica de negócios
+│   ├── services/       # Serviços e lógica de negócios
+│   └── main.py         # Arquivo principal da aplicação
 ├── requirements.txt    # Dependências do projeto
 └── README.md          # Este arquivo
 ```
@@ -61,4 +62,14 @@ A documentação da API está disponível em:
 - Conversão de PDF para imagens
 - Gerenciamento de coordenadas
 - Histórico de imagens processadas
-- Exportação de coordenadas 
+- Exportação de coordenadas
+
+## Docker
+
+A aplicação também pode ser executada em contêineres Docker:
+
+```bash
+docker-compose up
+```
+
+Isto iniciará tanto o backend quanto o frontend em containers separados. 

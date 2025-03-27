@@ -4,8 +4,10 @@ import OpenSeadragon from 'openseadragon';
 import './App.css';
 
 // Configuração do servidor
-// Use o host da aplicação atual como padrão ou uma variável de ambiente se definida
-const SERVER_URL = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
+// Use a variável de ambiente definida no docker-compose
+const SERVER_URL = process.env.REACT_APP_API_URL || window.location.origin.includes('localhost:3000')
+  ? 'http://localhost:8000'
+  : `${window.location.origin}`;
 
 function App() {
   const [file, setFile] = useState(null);

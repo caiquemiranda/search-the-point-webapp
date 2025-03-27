@@ -19,5 +19,5 @@ RUN mkdir -p uploads
 # Expõe a porta que a aplicação usa
 EXPOSE 8000
 
-# Comando para executar a aplicação
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 
+# Comando para executar a aplicação modularizada
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"] 
