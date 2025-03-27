@@ -28,6 +28,15 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Inicializa o banco de dados
 init_db()
 
+@app.get("/health")
+async def health_check():
+    """Endpoint para verificação de saúde da API"""
+    return {
+        "status": "online",
+        "time": datetime.now().isoformat(),
+        "service": "search-the-point-backend"
+    }
+
 @app.post("/upload-pdf/")
 async def upload_pdf(file: UploadFile = File(...)):
     """Upload e processamento de arquivo PDF"""

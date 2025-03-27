@@ -4,10 +4,24 @@ import OpenSeadragon from 'openseadragon';
 import './App.css';
 
 // Configuração do servidor
-// Use a variável de ambiente definida no docker-compose
-const SERVER_URL = process.env.REACT_APP_API_URL || window.location.origin.includes('localhost:3000')
-  ? 'http://localhost:8000'
-  : `${window.location.origin}`;
+// Lógica melhorada para ambientes de produção e desenvolvimento
+const SERVER_URL = (() => {
+  // 1. Prioridade: Variável de ambiente definida no Docker/ambiente de produção
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // 2. Desenvolvimento local sem Docker
+  if (window.location.origin.includes('localhost:3000')) {
+    return 'http://localhost:8000';
+  }
+  
+  // 3. Produção (assumindo que backend e frontend estão no mesmo domínio)
+  return `${window.location.origin}`;
+})();
+
+// Log para debug
+console.log('Conectando ao backend em:', SERVER_URL);
 
 function App() {
   const [file, setFile] = useState(null);
