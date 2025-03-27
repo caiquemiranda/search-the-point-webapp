@@ -10,12 +10,12 @@ const SERVER_URL = (() => {
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
-  
+
   // 2. Desenvolvimento local sem Docker
   if (window.location.origin.includes('localhost:3000')) {
     return 'http://localhost:8000';
   }
-  
+
   // 3. Produção (assumindo que backend e frontend estão no mesmo domínio)
   return `${window.location.origin}`;
 })();
