@@ -13,7 +13,7 @@ router = APIRouter(tags=["coordinates"])
 async def get_all_coordinates_route():
     """Busca todas as coordenadas salvas"""
     try:
-        return await get_all_coordinates()
+        return get_all_coordinates()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -21,7 +21,7 @@ async def get_all_coordinates_route():
 async def get_coordinates_route(image_id: str):
     """Busca coordenadas salvas para uma imagem"""
     try:
-        return await get_coordinates_by_image(image_id)
+        return get_coordinates_by_image(image_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -29,7 +29,7 @@ async def get_coordinates_route(image_id: str):
 async def save_coordinate_route(image_id: str, coordinate: CoordinateCreate):
     """Salva uma coordenada para uma imagem"""
     try:
-        return await save_coordinate(image_id, coordinate)
+        return save_coordinate(image_id, coordinate)
     except Exception as e:
         if "não encontrada" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))
@@ -39,7 +39,7 @@ async def save_coordinate_route(image_id: str, coordinate: CoordinateCreate):
 async def delete_coordinate_route(coordinate_id: int):
     """Remove uma coordenada salva"""
     try:
-        return await delete_coordinate(coordinate_id)
+        return delete_coordinate(coordinate_id)
     except Exception as e:
         if "não encontrada" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))

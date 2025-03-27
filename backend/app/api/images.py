@@ -12,7 +12,7 @@ async def upload_pdf_route(file: UploadFile = File(...)):
     """Upload e processamento de arquivo PDF"""
     try:
         session_id = str(uuid.uuid4())
-        return await process_pdf_upload(file, session_id)
+        return process_pdf_upload(file, session_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
