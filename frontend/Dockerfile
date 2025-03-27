@@ -1,5 +1,8 @@
 FROM node:16-alpine
 
+# Instalar ferramentas para diagnóstico de rede
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 # Instalar dependências
