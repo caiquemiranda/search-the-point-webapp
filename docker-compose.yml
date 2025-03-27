@@ -2,38 +2,39 @@ version: '3.8'
 
 services:
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - ./requirements.txt:/app/requirements.txt
-    restart: unless-stopped
+      - backend_uploads:/app/uploads
+      - backend_db:/app/coordinates.db
+    environment:
+      - PYTHONPATH=/app
     networks:
       - app-network
 
   frontend:
-    build:
+    build: 
       context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend/public:/app/public
-      - ./frontend/src:/app/src
-      - ./frontend/package.json:/app/package.json
-    depends_on:
-      - backend
+      - ./frontend:/app
+      - /app/node_modules
     environment:
       - REACT_APP_API_URL=http://localhost:8000
-      - WDS_SOCKET_PORT=0
-      - ESLINT_NO_DEV_ERRORS=true
-      - DISABLE_ESLINT_PLUGIN=true
-    restart: unless-stopped
+    depends_on:
+      - backend
     networks:
       - app-network
+
+volumes:
+  backend_uploads:
+  backend_db:
 
 networks:
   app-network:
