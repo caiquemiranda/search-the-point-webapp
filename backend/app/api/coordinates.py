@@ -9,7 +9,7 @@ from ..services.coordinate_service import (
 
 router = APIRouter(tags=["coordinates"])
 
-@router.get("/all-coordinates")
+@router.get("/all")
 async def get_all_coordinates_route():
     """Busca todas as coordenadas salvas"""
     try:
@@ -17,7 +17,7 @@ async def get_all_coordinates_route():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/coordinates/{image_id}")
+@router.get("/{image_id}")
 async def get_coordinates_route(image_id: str):
     """Busca coordenadas salvas para uma imagem"""
     try:
@@ -25,7 +25,7 @@ async def get_coordinates_route(image_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/coordinates/{image_id}")
+@router.post("/{image_id}")
 async def save_coordinate_route(image_id: str, coordinate: CoordinateCreate):
     """Salva uma coordenada para uma imagem"""
     try:
@@ -35,7 +35,7 @@ async def save_coordinate_route(image_id: str, coordinate: CoordinateCreate):
             raise HTTPException(status_code=404, detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/coordinates/{coordinate_id}")
+@router.delete("/{coordinate_id}")
 async def delete_coordinate_route(coordinate_id: int):
     """Remove uma coordenada salva"""
     try:

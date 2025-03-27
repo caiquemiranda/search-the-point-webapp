@@ -7,7 +7,7 @@ import os
 
 router = APIRouter(tags=["images"])
 
-@router.post("/upload-pdf/")
+@router.post("/upload-pdf")
 async def upload_pdf_route(file: UploadFile = File(...)):
     """Upload e processamento de arquivo PDF"""
     try:

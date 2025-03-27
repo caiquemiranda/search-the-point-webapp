@@ -18,8 +18,8 @@ app.add_middleware(
 init_db()
 
 # Inclui as rotas
-app.include_router(coordinates.router)
-app.include_router(images.router)
+app.include_router(images.router, prefix="/images")
+app.include_router(coordinates.router, prefix="/coordinates")
 
 if __name__ == "__main__":
     import uvicorn
