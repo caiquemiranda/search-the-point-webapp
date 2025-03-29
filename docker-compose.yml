@@ -1,46 +1,51 @@
 version: '3.8'
 
 services:
-  backend:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: search-the-point-backend
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - ./backend/uploads:/app/uploads
-    environment:
-      - PYTHONPATH=/app
-      - PYTHONUNBUFFERED=1
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
-    networks:
-      - app-network
-
   frontend:
     build: 
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: search-the-point-frontend
     ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "80:80"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
-      - WDS_SOCKET_PORT=0
-      - ESLINT_NO_DEV_ERRORS=true
-      - DISABLE_ESLINT_PLUGIN=true
+      - REACT_APP_API_URL=http://backend:8000
     depends_on:
       - backend
     networks:
       - app-network
 
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - uploaded_files:/app/uploaded_files
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/searchpoint
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  db:
+    image: postgres:14-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=searchpoint
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
 volumes:
-  backend_uploads:
-  backend_db:
+  postgres_data:
+  uploaded_files:
 
 networks:
   app-network:

@@ -7,6 +7,9 @@ import { useImageViewer } from './hooks/useImageViewer';
 import { SavedCoordinatesList } from './components/SavedCoordinatesList';
 import { ImageHistory } from './components/ImageHistory';
 import { CoordinateSearch } from './components/CoordinateSearch';
+import { UploadForm } from './components/UploadForm';
+import { CoordinatesPanel } from './components/CoordinatesPanel';
+import { ImageViewer } from './components/ImageViewer';
 
 // Configuração do servidor
 // Lógica melhorada para ambientes de produção e desenvolvimento
@@ -404,12 +407,8 @@ function App() {
       setPdfData(image);
       setCurrentPage(1);
       setHistoryOpen(false);
-
-      // Define o nome do arquivo como source padrão
       setCoordinateSource(image.filename);
-
-      // Limpa marcadores anteriores
-      clearAllMarkers();
+      clearImageViewerMarkers();
     } catch (error) {
       console.error('Erro ao carregar imagem do histórico:', error);
     }
@@ -418,16 +417,14 @@ function App() {
   const nextPage = () => {
     if (pdfData && currentPage < pdfData.pages.length) {
       setCurrentPage(currentPage + 1);
-      // Limpa marcadores ao trocar de página
-      clearAllMarkers();
+      clearImageViewerMarkers();
     }
   };
 
   const prevPage = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1);
-      // Limpa marcadores ao trocar de página
-      clearAllMarkers();
+      clearImageViewerMarkers();
     }
   };
 
@@ -457,101 +454,36 @@ function App() {
       </div>
 
       {activeTab === 'capture' && (
-        <form className="upload-section" onSubmit={handleSubmit}>
-          <input type="file" accept=".pdf" onChange={handleFileChange} />
-          <button type="submit" disabled={loading}>
-            {loading ? "Enviando..." : "Enviar"}
-          </button>
-          <button type="button" onClick={toggleHistory}>
-            {historyOpen ? "Fechar Histórico" : "Ver Histórico"}
-          </button>
-          <button type="button" onClick={exportCoordinatesCsv}>Exportar CSV</button>
-        </form>
-      )}
-
-      {historyOpen && activeTab === 'capture' && (
-        <div className="history-sidebar">
-          <h3>Histórico de Imagens</h3>
-          <ul>
-            {imageHistory.map((image) => (
-              <li key={image.id} onClick={() => loadImageFromHistory(image)}>
-                <div className="history-item">
-                  <img
-                    src={`${SERVER_URL}${image.thumbnail_path}`}
-                    alt={image.filename}
-                    className="history-thumbnail"
-                  />
-                  <div className="history-info">
-                    <p className="history-filename">{image.filename}</p>
-                    <p className="history-date">
-                      {new Date(image.upload_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <UploadForm
+          loading={loading}
+          onFileChange={handleFileChange}
+          onSubmit={handleSubmit}
+          onToggleHistory={toggleHistory}
+          onExportCsv={exportCoordinatesCsv}
+          historyOpen={historyOpen}
+        />
       )}
 
       {pdfData && activeTab === 'capture' && (
         <div className="content-container">
-          <div className="viewer-container">
-            <div id="openseadragon-viewer" ref={viewerRef}></div>
-            <div className="viewer-controls">
-              <button id="zoom-in">+</button>
-              <button id="zoom-out">-</button>
-              <button id="home">⌂</button>
-              <button id="full-page">⤢</button>
-            </div>
-            <div className="pagination">
-              <button onClick={prevPage} disabled={currentPage === 1}>Anterior</button>
-              <span>Página {currentPage} de {pdfData.pages.length}</span>
-              <button onClick={nextPage} disabled={currentPage === pdfData.pages.length}>Próxima</button>
-            </div>
-          </div>
+          <ImageViewer
+            viewerRef={viewerRef}
+            currentPage={currentPage}
+            totalPages={pdfData.pages.length}
+            onPrevPage={prevPage}
+            onNextPage={nextPage}
+          />
 
-          <div className="coordinates-panel">
-            <h3>Captura de Coordenadas</h3>
-            <div>
-              <label>
-                X:
-                <input
-                  type="text"
-                  value={coordinates.x}
-                  onChange={(e) => setCoordinates({ ...coordinates, x: e.target.value })}
-                />
-              </label>
-              <label>
-                Y:
-                <input
-                  type="text"
-                  value={coordinates.y}
-                  onChange={(e) => setCoordinates({ ...coordinates, y: e.target.value })}
-                />
-              </label>
-              <button onClick={() => navigateToCoordinates()}>Navegar</button>
-            </div>
-            <div className="coordinate-save">
-              <input
-                type="text"
-                value={coordinateName}
-                onChange={(e) => setCoordinateName(e.target.value)}
-                placeholder="Nome do ponto"
-              />
-              <input
-                type="text"
-                value={coordinateSource}
-                onChange={(e) => setCoordinateSource(e.target.value)}
-                placeholder="Fonte/origem da imagem"
-              />
-              <button onClick={saveCoordinate}>Salvar Coordenada</button>
-            </div>
-            <div className="coordinate-info">
-              <p>Clique na imagem para obter coordenadas</p>
-              <p>Coordenadas atuais: ({coordinates.x}, {coordinates.y})</p>
-            </div>
-          </div>
+          <CoordinatesPanel
+            coordinates={coordinates}
+            setCoordinates={setCoordinates}
+            coordinateName={coordinateName}
+            setCoordinateName={setCoordinateName}
+            coordinateSource={coordinateSource}
+            setCoordinateSource={setCoordinateSource}
+            onNavigate={() => navigateToCoordinates()}
+            onSaveCoordinate={saveCoordinate}
+          />
         </div>
       )}
 
@@ -559,86 +491,24 @@ function App() {
         <div className="find-point-section">
           <h3>Ache o Ponto</h3>
           <div className="find-point-container">
-            <div className="search-container" ref={searchInputRef}>
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Buscar pontos salvos..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => setShowSuggestions(true)}
+            <CoordinateSearch onNavigate={navigateToCoordinates} />
+            {selectedImage && (
+              <SavedCoordinatesList
+                imageId={selectedImage.id}
+                onNavigate={navigateToCoordinates}
               />
-              {showSuggestions && searchResults.length > 0 && (
-                <ul className="autocomplete-results">
-                  {searchResults.map((result, index) => (
-                    <li
-                      key={index}
-                      onClick={() => handleSelectSuggestion(result)}
-                    >
-                      {result}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {loadingAllCoordinates ? (
-              <p>Carregando coordenadas...</p>
-            ) : filteredCoordinates.length === 0 ? (
-              <p>Nenhuma coordenada encontrada {searchTerm && `para "${searchTerm}"`}.</p>
-            ) : (
-              <div className="all-coordinates-list">
-                <p className="coordinates-info">Clique em "Ir para o ponto" para navegar até a coordenada selecionada.</p>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Fonte</th>
-                      <th>Coordenadas</th>
-                      <th>Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCoordinates.map((coord) => (
-                      <tr key={coord.id}>
-                        <td>{coord.name}</td>
-                        <td>{coord.source || "Desconhecido"}</td>
-                        <td>({coord.x}, {coord.y})</td>
-                        <td>
-                          <button
-                            className="go-to-point-btn"
-                            onClick={() => navigateToSavedCoordinate(coord)}
-                          >
-                            Ir para o ponto
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             )}
           </div>
 
           {pdfData && (
             <div className="viewer-only-container">
-              <div className="viewer-container">
-                <div id="openseadragon-viewer"></div>
-                <div className="viewer-controls">
-                  <button id="zoom-in">+</button>
-                  <button id="zoom-out">-</button>
-                  <button id="home">⌂</button>
-                  <button id="full-page">⤢</button>
-                </div>
-                <div className="pagination">
-                  <button onClick={prevPage} disabled={currentPage === 1}>Anterior</button>
-                  <span>Página {currentPage} de {pdfData.pages.length}</span>
-                  <button onClick={nextPage} disabled={currentPage === pdfData.pages.length}>Próxima</button>
-                </div>
-              </div>
+              <ImageViewer
+                viewerRef={viewerRef}
+                currentPage={currentPage}
+                totalPages={pdfData.pages.length}
+                onPrevPage={prevPage}
+                onNextPage={nextPage}
+              />
             </div>
           )}
         </div>
