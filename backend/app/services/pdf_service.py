@@ -5,7 +5,7 @@ from datetime import datetime
 from ..db.database import execute_db_query
 
 # Diretório para armazenar arquivos processados
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
+UPLOAD_DIR = "/app/uploads"  # Caminho absoluto no container
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def convert_pdf_to_images(pdf_path, output_dir, dpi=300):
@@ -29,7 +29,7 @@ def convert_pdf_to_images(pdf_path, output_dir, dpi=300):
             "page_num": page_num + 1,
             "width": pix.width,
             "height": pix.height,
-            "path": f"/backend/images/{os.path.basename(output_dir)}/{image_name}"
+            "path": f"/images/{os.path.basename(output_dir)}/{image_name}"
         })
     
     return images_info
