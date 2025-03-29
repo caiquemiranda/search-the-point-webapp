@@ -2,6 +2,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import OpenSeadragon from 'openseadragon';
 import './App.css';
+import { api } from './services/api';
+import { useImageViewer } from './hooks/useImageViewer';
+import { SavedCoordinatesList } from './components/SavedCoordinatesList';
+import { ImageHistory } from './components/ImageHistory';
+import { CoordinateSearch } from './components/CoordinateSearch';
 
 // Configuração do servidor
 // Lógica melhorada para ambientes de produção e desenvolvimento
@@ -45,8 +50,18 @@ function App() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredCoordinates, setFilteredCoordinates] = useState([]);
 
-  const viewerRef = useRef(null);
-  const viewerInstance = useRef(null);
+  const {
+    viewerRef,
+    viewerInstance,
+    overlay: imageViewerOverlay,
+    setOverlay: setImageViewerOverlay,
+    activeMarker: imageViewerActiveMarker,
+    setActiveMarker: setImageViewerActiveMarker,
+    clearAllMarkers: clearImageViewerMarkers,
+    initializeViewer,
+    navigateToCoordinates
+  } = useImageViewer(activeTab);
+
   const searchInputRef = useRef(null);
 
   // Carrega o histórico de imagens
@@ -99,12 +114,7 @@ function App() {
 
   const fetchImageHistory = async () => {
     try {
-      const response = await fetch(`${SERVER_URL}/history`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
-      }
-      const data = await response.json();
+      const data = await api.fetchImageHistory();
       setImageHistory(data);
     } catch (error) {
       console.error('Erro ao carregar histórico de imagens:', error);
@@ -116,12 +126,7 @@ function App() {
     setLoadingAllCoordinates(true);
     try {
       console.log('Buscando todas as coordenadas salvas...');
-      const response = await fetch(`${SERVER_URL}/all-coordinates`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
-      }
-      const data = await response.json();
+      const data = await api.fetchAllSavedCoordinates();
       console.log(`Encontradas ${data.length} coordenadas salvas`);
       setAllSavedCoordinates(data);
       setFilteredCoordinates(data);
@@ -147,12 +152,7 @@ function App() {
   // Carrega as coordenadas salvas para uma imagem
   const fetchSavedCoordinates = async (imageId) => {
     try {
-      const response = await fetch(`${SERVER_URL}/coordinates/${imageId}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
-      }
-      const data = await response.json();
+      const data = await api.fetchSavedCoordinates(imageId);
       return data;
     } catch (error) {
       console.error('Erro ao carregar coordenadas salvas:', error);
@@ -162,25 +162,25 @@ function App() {
 
   const clearAllMarkers = () => {
     // Remove o marcador ativo se existir
-    if (activeMarker && viewerInstance.current) {
+    if (imageViewerActiveMarker && viewerInstance.current) {
       try {
-        viewerInstance.current.removeOverlay(activeMarker);
+        viewerInstance.current.removeOverlay(imageViewerActiveMarker);
         console.log('Marcador ativo removido');
       } catch (error) {
         console.error('Erro ao remover marcador ativo:', error);
       }
-      setActiveMarker(null);
+      setImageViewerActiveMarker(null);
     }
 
     // Remove o marcador de clique atual se existir
-    if (overlay && viewerInstance.current) {
+    if (imageViewerOverlay && viewerInstance.current) {
       try {
-        viewerInstance.current.removeOverlay(overlay);
+        viewerInstance.current.removeOverlay(imageViewerOverlay);
         console.log('Marcador de clique removido');
       } catch (error) {
         console.error('Erro ao remover marcador de clique:', error);
       }
-      setOverlay(null);
+      setImageViewerOverlay(null);
     }
   };
 
@@ -197,24 +197,7 @@ function App() {
         viewerInstance.current = null;
       }
 
-      viewerInstance.current = OpenSeadragon({
-        id: "openseadragon-viewer",
-        tileSources: {
-          type: 'image',
-          url: `${SERVER_URL}${currentPageData.path}`,
-          buildPyramid: false
-        },
-        showNavigationControl: true,
-        navigatorPosition: "BOTTOM_RIGHT",
-        zoomInButton: "zoom-in",
-        zoomOutButton: "zoom-out",
-        homeButton: "home",
-        fullPageButton: "full-page",
-        maxZoomPixelRatio: 3,
-        animationTime: 0.5,
-        visibilityRatio: 1,
-        constrainDuringPan: true
-      });
+      initializeViewer(currentPageData.path);
 
       // Adiciona manipulador de evento para capturar coordenadas do mouse apenas na aba "capturar"
       if (activeTab === 'capture') {
@@ -241,7 +224,7 @@ function App() {
               placement: OpenSeadragon.Placement.CENTER
             });
 
-            setOverlay(newOverlay);
+            setImageViewerOverlay(newOverlay);
 
             // Atualiza as coordenadas com 3 casas decimais
             setCoordinates({
@@ -283,76 +266,45 @@ function App() {
 
   // Função para salvar coordenadas no banco de dados
   const saveCoordinate = async () => {
-    if (!coordinates.x || !coordinates.y || !coordinateName || !pdfData) {
-      alert('Por favor, selecione um ponto e dê um nome para a coordenada');
+    if (!coordinateName || !coordinates.x || !coordinates.y) {
+      alert('Por favor, preencha todos os campos necessários.');
       return;
     }
 
     try {
-      console.log('Enviando coordenada para o servidor:', {
+      await api.saveCoordinate({
         name: coordinateName,
         x: parseFloat(coordinates.x),
         y: parseFloat(coordinates.y),
-        page: currentPage,
-        source: coordinateSource || pdfData.filename
+        source: coordinateSource,
+        image_id: selectedImage?.id
       });
 
-      const response = await fetch(`${SERVER_URL}/coordinates/${pdfData.session_id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: coordinateName,
-          x: parseFloat(coordinates.x),
-          y: parseFloat(coordinates.y),
-          page: currentPage,
-          source: coordinateSource || pdfData.filename
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
-      }
-
-      alert('Coordenada salva com sucesso!');
       setCoordinateName('');
-
-      // Limpa o marcador após salvar
-      console.log('Limpando marcadores após salvar coordenada');
+      setCoordinateSource('');
       clearAllMarkers();
-
-      // Atualiza o estado de todas as coordenadas salvas
-      fetchAllSavedCoordinates();
-
-      // Atualiza a lista de coordenadas salvas se estiver usando o componente SavedCoordinatesList
-      if (pdfData?.session_id) {
-        const savedCoordinatesListElement = document.querySelector('.saved-coordinates');
-        if (savedCoordinatesListElement) {
-          // Dispara um evento personalizado para notificar o componente SavedCoordinatesList
-          const event = new CustomEvent('coordinateAdded', { detail: { imageId: pdfData.session_id } });
-          savedCoordinatesListElement.dispatchEvent(event);
-        }
-      }
+      alert('Coordenada salva com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar coordenada:', error);
-      alert(`Erro ao salvar coordenada: ${error.message || 'Falha na conexão com o servidor'}`);
+      alert('Erro ao salvar coordenada. Por favor, tente novamente.');
     }
   };
 
   // Exportar coordenadas para CSV
   const exportCoordinatesCsv = async () => {
-    if (!pdfData || !pdfData.session_id) {
-      alert('Nenhuma imagem carregada');
-      return;
-    }
-
     try {
-      window.open(`${SERVER_URL}/coordinates/export/${pdfData.session_id}`, '_blank');
+      const blob = await api.exportCoordinatesCsv();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'coordenadas.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Erro ao exportar coordenadas:', error);
-      alert(`Erro ao exportar coordenadas: ${error.message || 'Falha na conexão com o servidor'}`);
+      alert('Erro ao exportar coordenadas. Por favor, tente novamente.');
     }
   };
 
@@ -429,7 +381,7 @@ function App() {
             placement: OpenSeadragon.Placement.CENTER
           });
 
-          setActiveMarker(newMarker);
+          setImageViewerActiveMarker(newMarker);
 
           // Navegar para a coordenada
           navigateToCoordinates(coord.x, coord.y);
@@ -446,83 +398,10 @@ function App() {
     }
   };
 
-  // Função para navegar até coordenadas específicas
-  const navigateToCoordinates = (x = coordinates.x, y = coordinates.y) => {
-    if (!viewerInstance.current) return;
-
-    const xCoord = parseFloat(x);
-    const yCoord = parseFloat(y);
-
-    if (isNaN(xCoord) || isNaN(yCoord)) {
-      alert("Coordenadas inválidas");
-      return;
-    }
-
-    viewerInstance.current.viewport.panTo(new OpenSeadragon.Point(xCoord, yCoord));
-    viewerInstance.current.viewport.zoomTo(5.5);
-  };
-
-  const handleFileChange = (e) => {
-    if (e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!file) {
-      alert("Por favor, selecione um arquivo PDF.");
-      return;
-    }
-
-    setLoading(true);
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch(`${SERVER_URL}/upload-pdf/`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setPdfData(data);
-      setCurrentPage(1);
-
-      // Define o nome do arquivo como source padrão
-      if (data.filename) {
-        setCoordinateSource(data.filename);
-      }
-
-      // Atualiza o histórico após upload
-      fetchImageHistory();
-      fetchAllSavedCoordinates();
-    } catch (error) {
-      console.error("Erro ao fazer upload do PDF:", error);
-      alert(`Erro ao processar o PDF: ${error.message || 'Falha na conexão com o servidor'}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadImageFromHistory = async (image) => {
     try {
       setSelectedImage(image);
-      setPdfData({
-        session_id: image.id,
-        filename: image.filename,
-        pages: Array.from({ length: image.page_count }, (_, i) => ({
-          page_num: i + 1,
-          path: `/images/${image.id}/page_${i + 1}.png`
-        }))
-      });
+      setPdfData(image);
       setCurrentPage(1);
       setHistoryOpen(false);
 
@@ -559,7 +438,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Visualizador de PDF com Coordenadas</h1>
+        <h1>Search the Point</h1>
       </header>
 
       <div className="tabs main-tabs">
@@ -567,13 +446,13 @@ function App() {
           className={activeTab === 'capture' ? 'active' : ''}
           onClick={() => setActiveTab('capture')}
         >
-          Capturar Coordenadas
+          Capturar
         </button>
         <button
           className={activeTab === 'find' ? 'active' : ''}
           onClick={() => setActiveTab('find')}
         >
-          Ache o Ponto
+          Encontrar
         </button>
       </div>
 
@@ -581,11 +460,12 @@ function App() {
         <form className="upload-section" onSubmit={handleSubmit}>
           <input type="file" accept=".pdf" onChange={handleFileChange} />
           <button type="submit" disabled={loading}>
-            {loading ? "Processando..." : "Processar PDF"}
+            {loading ? "Enviando..." : "Enviar"}
           </button>
           <button type="button" onClick={toggleHistory}>
             {historyOpen ? "Fechar Histórico" : "Ver Histórico"}
           </button>
+          <button type="button" onClick={exportCoordinatesCsv}>Exportar CSV</button>
         </form>
       )}
 
@@ -617,7 +497,7 @@ function App() {
       {pdfData && activeTab === 'capture' && (
         <div className="content-container">
           <div className="viewer-container">
-            <div id="openseadragon-viewer"></div>
+            <div id="openseadragon-viewer" ref={viewerRef}></div>
             <div className="viewer-controls">
               <button id="zoom-in">+</button>
               <button id="zoom-out">-</button>
@@ -666,7 +546,6 @@ function App() {
                 placeholder="Fonte/origem da imagem"
               />
               <button onClick={saveCoordinate}>Salvar Coordenada</button>
-              <button onClick={exportCoordinatesCsv} className="export-btn">Exportar CSV</button>
             </div>
             <div className="coordinate-info">
               <p>Clique na imagem para obter coordenadas</p>
@@ -764,119 +643,14 @@ function App() {
           )}
         </div>
       )}
-    </div>
-  );
-}
 
-// Componente para listar coordenadas salvas
-function SavedCoordinatesList({ imageId, onNavigate }) {
-  const [coordinates, setCoordinates] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const coordListRef = useRef(null);
-
-  useEffect(() => {
-    if (imageId) {
-      fetchCoordinates();
-    }
-  }, [imageId]);
-
-  useEffect(() => {
-    // Adiciona event listener para o evento customizado
-    const handleCoordinateAdded = () => {
-      fetchCoordinates();
-    };
-
-    const coordListElement = coordListRef.current;
-    if (coordListElement) {
-      coordListElement.addEventListener('coordinateAdded', handleCoordinateAdded);
-    }
-
-    return () => {
-      if (coordListElement) {
-        coordListElement.removeEventListener('coordinateAdded', handleCoordinateAdded);
-      }
-    };
-  }, []);
-
-  const fetchCoordinates = async () => {
-    if (!imageId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`${SERVER_URL}/coordinates/${imageId}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setCoordinates(data);
-    } catch (error) {
-      console.error('Erro ao buscar coordenadas:', error);
-      setError('Não foi possível carregar as coordenadas salvas.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteCoordinate = async (id) => {
-    if (window.confirm('Tem certeza que deseja excluir esta coordenada?')) {
-      try {
-        const response = await fetch(`${SERVER_URL}/coordinates/${id}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.detail || `Erro ${response.status}: ${response.statusText}`);
-        }
-
-        // Atualiza a lista após excluir
-        fetchCoordinates();
-      } catch (error) {
-        console.error('Erro ao excluir coordenada:', error);
-        alert(`Erro ao excluir coordenada: ${error.message || 'Falha na conexão com o servidor'}`);
-      }
-    }
-  };
-
-  if (loading) {
-    return <div className="saved-coordinates" ref={coordListRef}><p>Carregando coordenadas...</p></div>;
-  }
-
-  if (error) {
-    return <div className="saved-coordinates" ref={coordListRef}><p className="error-message">{error}</p></div>;
-  }
-
-  return (
-    <div className="saved-coordinates" ref={coordListRef}>
-      <h4>Coordenadas Salvas:</h4>
-      {coordinates.length === 0 ? (
-        <p>Nenhuma coordenada salva para esta imagem.</p>
-      ) : (
-        <ul>
-          {coordinates.map((coord) => (
-            <li key={coord.id}>
-              <span>
-                {coord.name} ({coord.x}, {coord.y})
-                <small className="source-text">{coord.source}</small>
-              </span>
-              <div>
-                <button onClick={() => onNavigate(coord)}>Ir para ponto</button>
-                <button
-                  className="delete-btn"
-                  onClick={() => deleteCoordinate(coord.id)}
-                >
-                  Excluir
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ImageHistory
+        historyOpen={historyOpen}
+        imageHistory={imageHistory}
+        selectedImage={selectedImage}
+        onImageSelect={loadImageFromHistory}
+        onToggleHistory={toggleHistory}
+      />
     </div>
   );
 }
