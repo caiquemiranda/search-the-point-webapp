@@ -4,7 +4,8 @@ import shutil
 from datetime import datetime
 from ..db.database import execute_db_query
 
-UPLOAD_DIR = "uploads"
+# Diretório para armazenar arquivos processados
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def convert_pdf_to_images(pdf_path, output_dir, dpi=300):
@@ -19,7 +20,8 @@ def convert_pdf_to_images(pdf_path, output_dir, dpi=300):
         pix = page.get_pixmap(matrix=fitz.Matrix(dpi/72, dpi/72))
         
         # Salva a imagem
-        image_path = os.path.join(output_dir, f"page_{page_num+1}.png")
+        image_name = f"page_{page_num+1}.png"
+        image_path = os.path.join(output_dir, image_name)
         pix.save(image_path)
         
         # Informações sobre a imagem
@@ -27,7 +29,7 @@ def convert_pdf_to_images(pdf_path, output_dir, dpi=300):
             "page_num": page_num + 1,
             "width": pix.width,
             "height": pix.height,
-            "path": f"/images/{os.path.basename(output_dir)}/page_{page_num+1}.png"
+            "path": f"/backend/images/{os.path.basename(output_dir)}/{image_name}"
         })
     
     return images_info

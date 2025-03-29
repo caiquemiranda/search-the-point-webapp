@@ -12,7 +12,7 @@ else:
     print("Banco de dados não encontrado, será criado do zero")
 
 # Limpar o diretório de uploads para começar do zero (opcional)
-uploads_dir = "uploads"
+uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
 if os.path.exists(uploads_dir):
     print(f"Limpando diretório de uploads: {uploads_dir}")
     shutil.rmtree(uploads_dir)

@@ -1,3 +1,11 @@
 /node_modules
-/temp_uploads
 __pycache__
+
+# Ignorar conteúdo da pasta uploads do backend, mas manter a estrutura
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Remover regra antiga de uploads
+/temp_uploads
+/uploads/
+uploads/

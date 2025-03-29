@@ -8,7 +8,8 @@ import './App.css';
 const SERVER_URL = (() => {
   // 1. Prioridade: Variável de ambiente definida no Docker/ambiente de produção
   if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
+    // Substitui "backend" por "localhost" se estiver sendo acessado pelo navegador
+    return process.env.REACT_APP_API_URL.replace('http://backend:', 'http://localhost:');
   }
 
   // 2. Desenvolvimento local sem Docker

@@ -22,7 +22,7 @@ app.add_middleware(
 )
 
 # Diretório para armazenar arquivos processados
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Inicializa o banco de dados
@@ -55,7 +55,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         images_info = convert_pdf_to_images(pdf_path, session_dir)
         
         # Salva informação da imagem no banco de dados
-        thumbnail_path = f"/images/{session_id}/page_1.png"  # Usa a primeira página como thumbnail
+        thumbnail_path = f"/backend/images/{session_id}/page_1.png"  # Usa a primeira página como thumbnail
         
         # Executa query segura para inserir imagem
         execute_db_query(
@@ -73,13 +73,17 @@ async def upload_pdf(file: UploadFile = File(...)):
         print(f"Erro ao processar PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar PDF: {str(e)}")
 
-@app.get("/images/{session_id}/{image_name}")
+@app.get("/backend/images/{session_id}/{image_name}")
 async def get_image(session_id: str, image_name: str):
     """Retorna uma imagem específica"""
-    image_path = os.path.join(UPLOAD_DIR, session_id, image_name)
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail="Imagem não encontrada")
-    return FileResponse(image_path)
+    try:
+        image_path = os.path.join(UPLOAD_DIR, session_id, image_name)
+        if not os.path.exists(image_path):
+            raise HTTPException(status_code=404, detail="Imagem não encontrada")
+        return FileResponse(image_path, media_type="image/png")
+    except Exception as e:
+        print(f"Erro ao buscar imagem: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar imagem: {str(e)}")
 
 @app.get("/history")
 async def get_processed_images():
